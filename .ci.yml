@@ -1,0 +1,53 @@
+image: debian:bookworm
+
+.build-setup: &build-setup
+  before_get_sources:
+    - apt-get -yq update > /dev/null && apt-get -yq upgrade
+    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake yosys
+
+stages:
+  - prepare
+  - test
+
+prepare-verilator:
+  <<: *build-setup
+  stage: prepare
+  variables:
+    VERILATOR_ROOT: /ci/verilator
+    SCALENODE_CPU: 8
+    SCALENODE_RAM: 16000
+    CCACHE_DIR: .ccache
+  cache:
+    paths:
+     - $CCACHE_DIR
+  script:
+    - git clone "https://gitlab-ci-token:${CI_JOB_TOKEN}@${VERILATOR_URL}" -b master "$VERILATOR_ROOT"
+    - cd verilator
+    - git show -s
+    - autoconf
+    - ./configure --prefix=`pwd`
+    - make -j `nproc`
+  artifacts:
+    paths:
+      - verilator
+    expire_in: 8 hours
+
+run-test:
+  <<: *build-setup
+  stage: test
+  variables:
+    VERILATOR_ROOT: /ci/verilator
+  dependencies:
+    - prepare-verilator
+  script:
+    - bash test.sh
+    - ctest --test-dir build -j
+  artifacts:
+    paths:
+      - obj_dir
+      - fault_campaign_out.csv
+      - worker.json
+      - sim_no_fault.log
+      - sim_fault.log
+    expire_in: 8 hours
+

@@ -1,0 +1,17 @@
+# Generated files
+*.dmp
+*.log
+*.csrc
+*.vcd
+obj_*
+logs
+*.json
+*.csv
+
+# Build
+build
+
+# IDE
+.vscode
+.cache
+.gdb_history
