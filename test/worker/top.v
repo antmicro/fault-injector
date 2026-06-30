@@ -33,7 +33,7 @@ module top;
   wire [31:0] counter;
 
 `ifdef FAULT_INJECTION_ENABLE
-  FaultInjector fi("fault_campaign_out.csv");
+  FaultInjector fi(`FAULT_INJECTION_CAMPAIGN_FILE);
 `endif
 
   worker worker (.*);
@@ -41,7 +41,6 @@ module top;
   final begin
     if (counter * CLOCK_PERIOD * 2 != CYCLES) begin
       $display("[%0t] Mismatch %d != %d", $time, CYCLES, counter * CLOCK_PERIOD * 2);
-      $stop;
     end
   end
 

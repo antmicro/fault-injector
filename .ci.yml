@@ -41,6 +41,7 @@ run-test:
     - prepare-verilator
   script:
     - bash test.sh
+    - bash src/FaultInjector/test/test.sh
     - ctest --test-dir build -j
   artifacts:
     paths:

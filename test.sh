@@ -33,18 +33,18 @@ EOF
 rm -rf ./obj_dir
 
 "$VERILATOR_ROOT"/bin/verilator \
-	--binary --vpi $TEST_DIR/config.vlt $TEST_DIR/top.v $TEST_DIR/worker.v $TEST_DIR/comb_worker.v $TEST_DIR/dff_worker.v ./src/FaultInjector/FaultInjector.sv -LDFLAGS "-L$(pwd)/build/src/FaultInjector -lFaultInjector" -j "$(nproc)" -CFLAGS '-g'
+	--binary --vpi $TEST_DIR/config.vlt $TEST_DIR/top.v $TEST_DIR/worker.v $TEST_DIR/comb_worker.v $TEST_DIR/dff_worker.v -j "$(nproc)" -CFLAGS '-g'
 
 # TODO go back to normal printing when excessive logs (from unrecognized signal) are fixed
 # Print logs, only when simulation failed
-./obj_dir/Vtop | tee sim_no_fault.log > /dev/null || cat sim_no_fault.log
+./obj_dir/Vtop | tee sim_no_fault.log >/dev/null || cat sim_no_fault.log
 grep -q "Mismatch" sim_no_fault.log && printf "==========\nFailure, simulation should pass\n==========\n" && exit 1
 
 "$VERILATOR_ROOT"/bin/verilator \
-	--binary --vpi $TEST_DIR/config.vlt $TEST_DIR/top.v $TEST_DIR/worker.v $TEST_DIR/comb_worker.v $TEST_DIR/dff_worker.v ./src/FaultInjector/FaultInjector.sv -LDFLAGS "-L$(pwd)/build/src/FaultInjector -lFaultInjector" -j "$(nproc)" -CFLAGS '-g' -DFAULT_INJECTION_ENABLE
+	--binary --vpi $TEST_DIR/config.vlt $TEST_DIR/top.v $TEST_DIR/worker.v $TEST_DIR/comb_worker.v $TEST_DIR/dff_worker.v ./src/FaultInjector/FaultInjector.sv -LDFLAGS "-L$(pwd)/build/src/FaultInjector -lFaultInjector" -j "$(nproc)" -CFLAGS '-g' -DFAULT_INJECTION_ENABLE -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\""
 
 # Print logs, only when simulation succeeded (when it should have failed)
-./obj_dir/Vtop | tee sim_fault.log  > /dev/null && cat sim_fault.log
+./obj_dir/Vtop | tee sim_fault.log >/dev/null && cat sim_fault.log
 grep -q "Mismatch" sim_fault.log && printf "==========\nSuccess\n==========\n" && exit 0
 printf "==========\nFailure, simulation should fail\n==========\n"
 exit 1

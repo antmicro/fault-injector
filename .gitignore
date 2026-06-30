@@ -2,10 +2,10 @@
 *.dmp
 *.log
 *.csrc
-*.vcd
 obj_*
 logs
 *.json
+*.vcd
 *.csv
 
 # Build

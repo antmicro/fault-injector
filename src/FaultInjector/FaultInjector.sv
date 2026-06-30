@@ -16,15 +16,11 @@
 
 `ifdef FAULT_INJECTION_ENABLE
 module FaultInjector(string input_file);
-	import "DPI-C" function chandle FaultInjectorCreate(string input_file);
-	import "DPI-C" function void FaultInjectorDestroy(chandle fault_injector_handle);
+	import "DPI-C" function void FaultInjectorCreate(string input_file);
+	import "DPI-C" function void FaultInjectorDestroy();
 
-	chandle fault_injector;
+	initial FaultInjectorCreate(input_file);
 
-	initial begin
-		fault_injector = FaultInjectorCreate(input_file);
-	end
-
-	final FaultInjectorDestroy(fault_injector);
+	final FaultInjectorDestroy();
 endmodule
 `endif
