@@ -20,6 +20,7 @@
 #include "Signal.h"
 
 #include <memory>
+#include <random>
 #include <span>
 #include <vector>
 
@@ -30,12 +31,17 @@ class FaultStrategy {
         std::uint32_t seed;
         std::uint64_t simulation_time;
     };
+    struct RandomGen final {
+        explicit RandomGen(std::uint32_t seed) : random_generator(seed) {}
+        std::mt19937 random_generator;
+    };
 
     const Config config;
+    RandomGen gen;
 
     virtual std::vector<FaultEvent> generate(std::span<const Signal> signals) = 0;
     virtual std::shared_ptr<FaultStrategy> copy_with(FaultStrategy::Config) = 0;
 
    protected:
-    FaultStrategy(const Config& config) : config(config) {}
+    FaultStrategy(const Config& config) : config{config}, gen{config.seed} {}
 };

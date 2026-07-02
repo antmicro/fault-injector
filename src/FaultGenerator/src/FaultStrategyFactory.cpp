@@ -17,42 +17,69 @@
 #include "FaultStrategyFactory.h"
 
 #include "FaultStrategy.h"
+#include "FaultStrategyBendel.h"
 #include "FaultStrategyRandom.h"
 #include "FaultStrategyWeibull.h"
 
 #include <iostream>
 #include <memory>
+#include <nlohmann/json.hpp>
 
-void from_json(const nlohmann::json& json, WeibullConfig::Stream& config) {
-    config.let = json.at("let").get<double>();
-    config.flux_phi = json.at("flux_phi").get<double>();
-    config.max_time = json.at("max_time").get<double>();
-}
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WeibullConfig::Stream, let, flux_phi, max_time)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WeibullConfig,
+                                                streams,
+                                                bit_count,
+                                                cell_area,
+                                                let_threshold,
+                                                width,
+                                                shape_parameter,
+                                                limiting_cross_section)
 
-void from_json(const nlohmann::json& json, WeibullConfig& config) {
-    config.cell_area = json.value("cell_area", config.cell_area);
-    config.bit_count = json.value("bit_count", config.bit_count);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(BendelConfig::Stream,
+                                                name,
+                                                A,
+                                                B,
+                                                energy,
+                                                flux_phi,
+                                                fluence)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(BendelConfig,
+                                                bit_count,
+                                                device_area,
+                                                num_cells,
+                                                streams)
 
-    config.streams = json.value<std::vector<WeibullConfig::Stream>>("streams", {});
-}
-
-std::shared_ptr<FaultStrategy> FaultStrategyFactory::build_from_json(
+std::shared_ptr<FaultStrategy> FaultStrategyFactory::buildFromJson(
     const FaultStrategy::Config& config,
     const nlohmann::json& model_config) {
     std::string_view model_name = model_config.at("name").get<std::string_view>();
     if (model_name == "random") {
         // TODO Here maybe warn that random model received params, when it doesn't expect to
-        return std::make_shared<RandomStrategy>(RandomStrategy(config));
+        return std::make_shared<RandomStrategy>(config);
     } else if (model_name == "weibull") {
-        WeibullConfig weibullConfig = model_config.at("params").get<WeibullConfig>();
-        return std::make_shared<WeibullStrategy>(WeibullStrategy{config, weibullConfig});
+        try {
+            const auto weibull_config = model_config.at("params").get<WeibullConfig>();
+            return std::make_shared<WeibullStrategy>(config, weibull_config);
+        } catch (const nlohmann::json::exception& e) {
+            std::cerr << "Config validation failed: \n";
+            std::cerr << e.what() << '\n';
+            std::exit(1);
+        }
+    } else if (model_name == "bendel") {
+        try {
+            const auto bendel_config = model_config.at("params").get<BendelConfig>();
+            return std::make_shared<BendelStrategy>(config, bendel_config);
+        } catch (const nlohmann::json::exception& e) {
+            std::cerr << "Config validation failed: \n";
+            std::cerr << e.what() << '\n';
+            std::exit(1);
+        }
     } else {
         std::cerr << "Unknown model: " << model_name << "\n";
         std::exit(1);
     }
 }
 
-std::shared_ptr<FaultStrategy> FaultStrategyFactory::default_strategy(
+std::shared_ptr<FaultStrategy> FaultStrategyFactory::defaultStrategy(
     const FaultStrategy::Config& config) {
     return std::make_shared<RandomStrategy>(RandomStrategy{config});
 }

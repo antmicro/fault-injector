@@ -16,7 +16,9 @@
 
 #pragma once
 
+#include <numbers>
 namespace seu {
-static constexpr int MAX_BITS = 1023;
-static constexpr double FLUX_THETA = 0.0;
+static constexpr double deg2rad(double deg) {
+    return deg * std::numbers::pi / 180.0;
+}
 };  // namespace seu

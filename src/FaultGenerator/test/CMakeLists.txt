@@ -1,11 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
-# Test 1
 add_executable(TestFaultStrategyWeibull TestFaultStrategyWeibull.cpp)
 target_link_libraries(TestFaultStrategyWeibull PRIVATE FaultGenerationToolLib)
 add_test(NAME TestFaultStrategyWeibull COMMAND TestFaultStrategyWeibull)
 
-# Test 2
 add_executable(TestConfigReading TestConfigReading.cpp)
 target_link_libraries(TestConfigReading
   PRIVATE
@@ -18,7 +16,11 @@ target_link_libraries(TestConfigReading
 )
 add_test(NAME TestConfigReading  COMMAND TestConfigReading)
 
-# Test 3
+add_executable(TestFaultStrategyBendel TestFaultStrategyBendel.cpp)
+target_link_libraries(TestFaultStrategyBendel PRIVATE FaultGenerationToolLib GTest::gtest_main)
+add_test(NAME TestFaultStrategyBendel COMMAND TestFaultStrategyBendel)
+
+
 add_executable(TestLibertyParsing TestLibertyParsing.cpp)
 target_link_libraries(TestLibertyParsing PRIVATE FaultGenerationToolLib GTest::gtest_main)
 target_compile_definitions(TestLibertyParsing PRIVATE

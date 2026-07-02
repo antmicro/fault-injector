@@ -58,7 +58,8 @@ static constexpr int INVALID_TOP_MODULE_INDEX = -1;
 std::vector<Signal> SignalCollector::collectFromFile(const std::string& netlist_filepath) const {
     std::ifstream netlist_file(netlist_filepath);
     if (!netlist_file) {
-        std::cerr << "cannot access '" << netlist_filepath << "': No such file or directory\n";
+        std::cerr << "cannot access netlist file '" << netlist_filepath
+                  << "': No such file or directory\n";
         std::exit(1);
     }
 

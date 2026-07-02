@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_library(FaultGenerationToolLib
+  FaultStrategyBendel.cpp
   FaultStrategyFactory.cpp
   FaultStrategyRandom.cpp
   FaultStrategyWeibull.cpp
-  LibertyParser.cpp
   GlobalOpts.cpp
+  LibertyParser.cpp
   SignalCollector.cpp
 )
 

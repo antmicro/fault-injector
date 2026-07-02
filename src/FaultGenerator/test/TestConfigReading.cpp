@@ -14,6 +14,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "FaultStrategyBendel.h"
 #include "FaultStrategyRandom.h"
 #include "FaultStrategyWeibull.h"
 #include "GlobalOpts.h"
@@ -110,7 +111,7 @@ TEST(WeibullStrategyTests, ExampleTest) {
     EXPECT_EQ(weibull->config.seed, 56);
     EXPECT_EQ(weibull->config.simulation_time, 104);
 
-    auto wconfig = weibull->weibullConfig;
+    auto wconfig = weibull->weibull_config;
     EXPECT_DOUBLE_EQ(wconfig.cell_area, 0.25e-23);
     EXPECT_DOUBLE_EQ(wconfig.bit_count, 140000);
     ASSERT_EQ(wconfig.streams.size(), 1);
@@ -182,4 +183,62 @@ TEST(LibertyFilesTests, ArgsTestWithoutEq) {
     EXPECT_EQ(liberty_files[0], "file1.lib");
     EXPECT_EQ(liberty_files[1], "file2.lib");
     EXPECT_EQ(liberty_files[2], "file3.lib");
+}
+
+TEST(BendelStrategyTests, JsonConfig) {
+    auto strategy_json =
+        R"json({
+  "model": {
+    "name": "bendel",
+    "params" : {
+      "bit_count": 1,
+      "device_area": 6.0,
+      "num_cells": 3,
+      "streams": [{
+        "name": "stream0",
+        "A": 2.0,
+        "B": 3.0,
+        "energy": 4.0,
+        "flux_phi": 5.0,
+        "fluence": 6.0
+      }]
+    }
+  },
+  "params": {
+    "num_of_events": 103,
+    "seed": 56,
+    "simulation_time": 104,
+    "sig_path_prefix": "top",
+    "top_module": "dff_worker",
+    "top_instance": "worker",
+    "netlist_path": "worker.json",
+    "fault_campaign_out": "random_file.csv"
+  }
+})json"_json;
+
+    GlobalOpts actual = strategy_json.get<GlobalOpts>();
+    auto strategy = std::dynamic_pointer_cast<BendelStrategy>(actual.strategy);
+
+    EXPECT_TRUE(strategy);
+    EXPECT_EQ(strategy->config.num_of_events, 103);
+    EXPECT_EQ(strategy->config.seed, 56);
+    EXPECT_EQ(strategy->config.simulation_time, 104);
+
+    auto& config = strategy->bendel_config;
+    EXPECT_EQ(config.streams.size(), 1);
+    EXPECT_STREQ(config.streams[0].name.c_str(), "stream0");
+    EXPECT_DOUBLE_EQ(config.streams[0].A, 2.0);
+    EXPECT_DOUBLE_EQ(config.streams[0].B, 3.0);
+    EXPECT_DOUBLE_EQ(config.streams[0].energy, 4.0);
+    EXPECT_DOUBLE_EQ(config.streams[0].flux_phi, 5.0);
+    EXPECT_DOUBLE_EQ(config.streams[0].fluence, 6.0);
+    EXPECT_DOUBLE_EQ(config.bit_count, 1);
+    EXPECT_DOUBLE_EQ(config.num_cells, 3);
+    EXPECT_DOUBLE_EQ(config.device_area, 6.0);
+
+    EXPECT_EQ(actual.sig_path_prefix, "top");
+    EXPECT_EQ(actual.top_module, "dff_worker");
+    EXPECT_EQ(actual.top_instance, "worker");
+    EXPECT_EQ(actual.netlist_path, "worker.json");
+    EXPECT_EQ(actual.fault_campaign_out, "random_file.csv");
 }

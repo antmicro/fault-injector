@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <string>
 
-enum class FaultEventType {
+enum class FaultEventType : std::uint8_t {
     UNKNOWN = 0,
     SINGLE_EVENT_TRANSIENT,
     SINGLE_EVENT_UPSET,
@@ -40,6 +40,7 @@ inline const char* faultEventTypeToString(FaultEventType type) {
 struct FaultEvent {
     std::uint64_t time = 0;
     std::string signal_path;
-    unsigned int bit_index = 0;
+    std::uint32_t bit_index = 0;
     FaultEventType type = FaultEventType::UNKNOWN;
+    bool operator<(const FaultEvent& other) const { return time < other.time; }
 };

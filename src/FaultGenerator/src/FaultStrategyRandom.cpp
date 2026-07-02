@@ -25,13 +25,11 @@
 RandomStrategy::RandomStrategy(const Config& config) : FaultStrategy(config) {}
 
 std::vector<FaultEvent> RandomStrategy::generate(std::span<const Signal> signals) {
-    std::mt19937 random_generator(config.seed);
-
     std::uniform_int_distribution<uint64_t> time_dist(0, config.simulation_time);
     std::vector<uint64_t> time_values;
     time_values.reserve(config.num_of_events);
     for (unsigned int index = 0; index < config.num_of_events; ++index) {
-        time_values.push_back(time_dist(random_generator));
+        time_values.push_back(time_dist(gen.random_generator));
     }
     std::sort(time_values.begin(), time_values.end());
 
@@ -42,11 +40,11 @@ std::vector<FaultEvent> RandomStrategy::generate(std::span<const Signal> signals
         FaultEvent& fault_event = fault_events[index];
         fault_event.time = time_values[index];
 
-        auto idx = sig_dist(random_generator);
+        auto idx = sig_dist(gen.random_generator);
         const Signal& signal = signals[idx];
 
         fault_event.signal_path = signal.signal_path;
-        fault_event.bit_index = bit_dist(random_generator) % signal.num_of_bits;
+        fault_event.bit_index = bit_dist(gen.random_generator) % signal.num_of_bits;
         fault_event.type = signal.type == SignalType::REGISTER
                                ? FaultEventType::SINGLE_EVENT_UPSET
                                : FaultEventType::SINGLE_EVENT_TRANSIENT;

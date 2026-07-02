@@ -18,6 +18,7 @@
 
 #include "FaultEvent.h"
 #include "FaultStrategy.h"
+#include "Utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,34 +27,22 @@
 
 struct Cell {
     const double area;
-    struct Weibull {
-        double L0 = 1.09 * 1e5;  // [Mev * cm^2 / mg]
-        double W = 39.25 * 1e5;  // [Mev * cm^2 / mg]
-        double s = 1.116;
-        double g0 = 0.284 * 1e-4;  // [s * cm ^ 2 / bit]
-    };
-    Weibull weibull;
 };
 
-struct Stream {
-    const double flux_phi;
-    const double let;
-    double flux_theta = 0.0;
-    static constexpr double deg2rad(double deg) { return deg * std::numbers::pi / 180.0; }
-    double eventTime(const Cell& cell,
-                     WeibullStrategy::RandomGen& gen,
-                     std::uniform_real_distribution<double>& dist) {
-        const double cos = std::cos(deg2rad(flux_theta));
+double WeibullStrategy::eventTime(const Cell& cell,
+                                  const WeibullConfig::Stream& stream,
+                                  double g0) {
+    const double cos = std::cos(seu::deg2rad(seu::FLUX_THETA));
+    const double L0 = weibull_config.let_threshold;
+    const double W = weibull_config.width;
+    const double s = weibull_config.shape_parameter;
 
-        const double g = cell.weibull.g0 *
-                         (1.0 - std::exp(-std::pow((let / cos - cell.weibull.L0) / cell.weibull.W,
-                                                   cell.weibull.s)));
-        const double h = g * flux_phi * cell.area * cos;
-        const double p = dist(gen.random_generator);
-        const double dt = -std::log(1 - p) / h;
-        return dt;
-    }
-};
+    const double g = g0 * (1.0 - std::exp(-std::pow((stream.let / cos - L0) / W, s)));
+    const double h = g * stream.flux_phi * cell.area * cos;
+    const double p = real_dist(gen.random_generator);
+    const double dt = -std::log(1 - p) / h;
+    return dt;
+}
 
 struct History {
     double curr_time = 0;
@@ -61,12 +50,12 @@ struct History {
 };
 
 WeibullStrategy::WeibullStrategy(const Config& config, const WeibullConfig& weibullConfig)
-    : FaultStrategy(config), weibullConfig(weibullConfig) {}
+    : FaultStrategy(config), weibull_config(weibullConfig) {}
 
 std::vector<FaultEvent> WeibullStrategy::generate(std::span<const Signal> signals) {
     std::vector<FaultEvent> result;
-    for (size_t i = 0; i < weibullConfig.streams.size(); ++i) {
-        std::vector<FaultEvent> current = generate(weibullConfig.streams[i], signals);
+    for (size_t i = 0; i < weibull_config.streams.size(); ++i) {
+        std::vector<FaultEvent> current = generate(weibull_config.streams[i], signals);
         std::printf("#%ld: %ld\n", i, current.size());
         for (auto& r : current) {
             result.emplace_back(r);
@@ -75,16 +64,16 @@ std::vector<FaultEvent> WeibullStrategy::generate(std::span<const Signal> signal
     return result;
 }
 
-std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& streamData,
+std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& stream_data,
                                                   std::span<const Signal> signals) {
     std::vector<FaultEvent> result;
-    // TODO support cells with different areas
-    Cell cell{.area = weibullConfig.cell_area};
-    cell.weibull.g0 *= static_cast<double>(weibullConfig.bit_count) / signals.size();
+    Cell cell{.area = weibull_config.cell_area};
+    const double g0 = weibull_config.limiting_cross_section *
+                      (static_cast<double>(weibull_config.bit_count) / signals.size());
 
-    std::vector<Stream> streams = {Stream{.flux_phi = streamData.flux_phi, .let = streamData.let}};
+    std::vector<WeibullConfig::Stream> streams = {stream_data};
     std::vector<std::vector<double>> event_time(
-        signals.size(), std::vector<double>{streams.front().eventTime(cell, gen, real_dist)});
+        signals.size(), std::vector<double>{eventTime(cell, streams.front(), g0)});
     std::vector<std::vector<History>> history(signals.size());
     double curr_time = 0.0;
     std::uint64_t total_hits = 0;
@@ -112,7 +101,7 @@ std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& s
         curr_time = event_time[cell_id][stream_id];
 
         // Finish
-        if (curr_time >= streamData.max_time) {
+        if (curr_time >= stream_data.max_time) {
             break;
         }
 
@@ -125,13 +114,13 @@ std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& s
         ++total_hits;
 
         // Schedule next one
-        event_time[cell_id][stream_id] += streams[stream_id].eventTime(cell, gen, real_dist);
+        event_time[cell_id][stream_id] += eventTime(cell, streams[stream_id], g0);
     }
 
     return result;
 }
 
 std::shared_ptr<FaultStrategy> WeibullStrategy::copy_with(FaultStrategy::Config new_config) {
-    WeibullStrategy oth = WeibullStrategy(new_config, this->weibullConfig);
+    WeibullStrategy oth = WeibullStrategy(new_config, this->weibull_config);
     return std::make_shared<WeibullStrategy>(oth);
 }

@@ -34,19 +34,22 @@ struct WeibullConfig {
     std::vector<Stream> streams;
     std::uint32_t bit_count = 256000 * 16;  // 4MB
     double cell_area = 0.25e-6;             // [mm^2]
+
+    double let_threshold = 1.09 * 1e5;             // [Mev * cm^2 / mg]
+    double width = 39.25 * 1e5;                    // [Mev * cm^2 / mg]
+    double shape_parameter = 1.116;                //
+    double limiting_cross_section = 0.284 * 1e-4;  // [s * cm ^ 2 / bit]
 };
 
 class WeibullStrategy : public FaultStrategy {
-   public:
-    const WeibullConfig weibullConfig;
-
-    struct RandomGen {
-        explicit RandomGen(std::uint32_t seed) : random_generator(seed) {}
-        std::mt19937 random_generator;
+    struct Cell {
+        const double area;
     };
 
+   public:
+    const WeibullConfig weibull_config;
+
    private:
-    RandomGen gen{config.seed};
     std::uniform_real_distribution<double> real_dist;
     std::uniform_int_distribution<std::uint32_t> bit_dist{0, seu::MAX_BITS};
 
@@ -54,6 +57,6 @@ class WeibullStrategy : public FaultStrategy {
     explicit WeibullStrategy(const Config&, const WeibullConfig&);
     std::vector<FaultEvent> generate(std::span<const Signal>) override;
     std::vector<FaultEvent> generate(const WeibullConfig::Stream&, std::span<const Signal>);
-
     std::shared_ptr<FaultStrategy> copy_with(FaultStrategy::Config) override;
+    double eventTime(const Cell& cell, const WeibullConfig::Stream& stream, double g0);
 };

@@ -1,0 +1,37 @@
+{
+  "model": {
+    "name": "bendel",
+    "params" : {
+      "device_area": 57.12,
+      "num_cells": 64,
+      "streams": [
+        {
+            "name":       "run55",
+            "energy":     20.0e6,
+            "flux_phi":   1.12e12,
+            "fluence":    1e14
+        },
+        {
+            "name":       "run52",
+            "energy":     40.0e6,
+            "flux_phi":   1.19e12,
+            "fluence":    1e14
+        },
+        {
+            "name":       "run47",
+            "energy":     60.0e6,
+            "flux_phi":   9.17e11,
+            "fluence":    1e14
+        }
+      ]
+    }
+  },
+  "params": {
+    "seed": 42,
+    "sig_path_prefix": "top",
+    "top_module": "dff_worker",
+    "top_instance": "worker",
+    "netlist_path": "obj_dir/worker.json",
+    "fault_campaign_out": "obj_dir/bendel_campaign.csv"
+  }
+}

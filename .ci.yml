@@ -73,6 +73,7 @@ run-test:
     - prepare-yosys
   script:
     - export PATH=$(pwd)/third_party/yosys:$PATH
+    - bash build.sh
     - bash test.sh
     - bash test-multiple.sh
     - ctest --test-dir build -j --output-on-failure --timeout 60
@@ -80,6 +81,12 @@ run-test:
   artifacts:
     paths:
       - obj_dir
+      - fault_campaign_out.csv
+      - bendel_campaign.csv
+      - weibull_campaign.csv
+      - worker.json
+      - sim_no_fault.log
+      - sim_fault.log
       - build/Testing/Temporary/LastTest.log
     expire_in: 8 hours
 
