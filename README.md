@@ -1,20 +1,33 @@
 # Fault injector
-Fault injector is a collection of tools meant to use as a plugin to Verilator,
-to allow for testing circuit's design for it's handling of single event errors
-[wiki](https://en.wikipedia.org/wiki/Single-event_upset).
+Copyright (c) 2026 Antmicro
+
+A collection of tools, including a plugin for Verilator,
+that allow for injecting faults into a hardware design simulation.
 
 ## Setup
-To build project it's enough to call `build.sh`.
+To build the project, run:
 
-To build unit tests, call `build.sh -DBUILD_TESTING=ON`.
-Then to run them call `ctest --test-dir build`.
+```sh
+./build.sh
+```
 
-To run end-to-end tests use `bash test.sh`.
+To build and run unit tests:
+
+```sh
+./build.sh -DBUILD_TESTING=ON
+ctest --test-dir build
+```
+
+To run end-to-end tests:
+
+```sh
+./bash test.sh
+```
 
 ## Usage
-To generate fault campaign `fault_campaign_out.csv` to be used by FaultInjection library:
+To generate and simulate a fault campaign:
 
-1. Run synthesis to get JSON netlist file with mapped DFFs.
+1. Run synthesis to get a JSON netlist file with mapped DFFs.
 
 ```
 yosys <<EOF
