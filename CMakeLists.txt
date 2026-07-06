@@ -36,8 +36,5 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 endif()
 
-
-option(VERILATOR_ROOT "VERILATOR_ROOT [required]" NO)
-
 add_subdirectory(src/FaultGenerator)
 add_subdirectory(src/FaultInjector)

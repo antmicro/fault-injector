@@ -6,6 +6,12 @@ set -euo pipefail
 CURRENT_DIR="$(dirname $(readlink -f ${BASH_SOURCE[0]}))"
 TEST_DIR="$CURRENT_DIR/worker"
 
+if [[ -z "$VERILATOR_ROOT" ]]
+then
+  echo "This script depends on VERILATOR_ROOT variable being set."
+  exit 1
+fi
+
 pushd "$CURRENT_DIR"
 rm -rf ./obj_dir
 

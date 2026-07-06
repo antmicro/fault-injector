@@ -4,7 +4,6 @@
 set -euo pipefail
 
 cmake -B build \
-  -DVERILATOR_ROOT="$VERILATOR_ROOT" \
   -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
   -DCMAKE_BUILD_TYPE=Debug

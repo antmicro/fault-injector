@@ -6,8 +6,13 @@ set -euo pipefail
 CURRENT_DIR="$(dirname $(readlink -f ${BASH_SOURCE[0]}))"
 TEST_DIR="$CURRENT_DIR/test/worker"
 
+if [[ -z "$VERILATOR_ROOT" ]]
+then
+  echo "This script depends on VERILATOR_ROOT variable being set."
+  exit 1
+fi
+
 cmake -B build \
-	-DVERILATOR_ROOT="$VERILATOR_ROOT" \
 	-DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
 	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 	-DCMAKE_BUILD_TYPE=Debug
