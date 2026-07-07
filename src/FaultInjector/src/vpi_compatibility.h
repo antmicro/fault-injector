@@ -11,8 +11,7 @@
  *
  ******************************************************************************/
 #ifdef VPI_COMPATIBILITY_H
-#error "The vpi_compatibility.h file can only be included by vpi_user.h
-directly."
+#error "The vpi_compatibility.h file can only be included by vpi_user.h directly."
 #endif
 #define VPI_COMPATIBILITY_H
 /* Compatibility-mode variants of functions */
@@ -24,7 +23,7 @@ directly."
 #endif
 #if VPI_COMPATIBILITY_VERSION_1364v1995
 #if VPI_COMPATIBILITY_VERSION_1364v2001 || VPI_COMPATIBILITY_VERSION_1364v2005
-    || VPI_COMPATIBILITY_VERSION_1800v2005 || VPI_COMPATIBILITY_VERSION_1800v2009 ||
+|| VPI_COMPATIBILITY_VERSION_1800v2005 || VPI_COMPATIBILITY_VERSION_1800v2009 ||
     VPI_COMPATIBILITY_VERSION_1800v2012
 #error "Only one VPI_COMPATIBILITY_VERSION symbol definition is allowed."
 #endif
