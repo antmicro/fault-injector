@@ -53,16 +53,16 @@ TEST(RandomStrategyTests, ExampleTest) {
     GlobalOpts actual = random_strategy_json.get<GlobalOpts>();
     auto random = std::dynamic_pointer_cast<RandomStrategy>(actual.strategy);
 
-    EXPECT_TRUE(random);
-    EXPECT_EQ(random->config.num_of_events, 101);
-    EXPECT_EQ(random->config.seed, 13);
-    EXPECT_EQ(random->config.simulation_time, 102);
-
     EXPECT_EQ(actual.sig_path_prefix, "top");
     EXPECT_EQ(actual.top_module, "dff_worker");
     EXPECT_EQ(actual.top_instance, "worker");
     EXPECT_EQ(actual.netlist_path, "worker.json");
     EXPECT_EQ(actual.fault_campaign_out, "random_file.csv");
+
+    ASSERT_TRUE(random);
+    EXPECT_EQ(random->config.num_of_events, 101);
+    EXPECT_EQ(random->config.seed, 13);
+    EXPECT_EQ(random->config.simulation_time, 102);
 }
 
 TEST(WeibullStrategyTests, ExampleTest) {
@@ -71,7 +71,8 @@ TEST(WeibullStrategyTests, ExampleTest) {
   "model": {
     "name": "weibull",
     "params" : {
-      "cell_area": 0.25e-6,
+      "cell_area": 0.25e-23,
+      "bit_count": 140000,
       "streams": [{
         "let": 111.0,
         "flux_phi": 123.0,
@@ -92,22 +93,89 @@ TEST(WeibullStrategyTests, ExampleTest) {
 })json"_json;
 
     GlobalOpts actual = weibull_strategy_json.get<GlobalOpts>();
-    auto weibull = std::dynamic_pointer_cast<WeibullStrategy>(actual.strategy);
-
-    EXPECT_TRUE(weibull);
-    EXPECT_EQ(weibull->config.num_of_events, 103);
-    EXPECT_EQ(weibull->config.seed, 56);
-    EXPECT_EQ(weibull->config.simulation_time, 104);
-
-    auto wconfig = weibull->weibullConfig;
-    EXPECT_EQ(wconfig.streams.size(), 1);
-    EXPECT_DOUBLE_EQ(wconfig.streams[0].let, 111.0);
-    EXPECT_DOUBLE_EQ(wconfig.streams[0].flux_phi, 123.0);
-    EXPECT_DOUBLE_EQ(wconfig.streams[0].max_time, 321.0);
 
     EXPECT_EQ(actual.sig_path_prefix, "top");
     EXPECT_EQ(actual.top_module, "dff_worker");
     EXPECT_EQ(actual.top_instance, "worker");
     EXPECT_EQ(actual.netlist_path, "worker.json");
     EXPECT_EQ(actual.fault_campaign_out, "random_file.csv");
+
+    auto weibull = std::dynamic_pointer_cast<WeibullStrategy>(actual.strategy);
+    ASSERT_TRUE(weibull);
+    EXPECT_EQ(weibull->config.num_of_events, 103);
+    EXPECT_EQ(weibull->config.seed, 56);
+    EXPECT_EQ(weibull->config.simulation_time, 104);
+
+    auto wconfig = weibull->weibullConfig;
+    EXPECT_DOUBLE_EQ(wconfig.cell_area, 0.25e-23);
+    EXPECT_DOUBLE_EQ(wconfig.bit_count, 140000);
+    ASSERT_EQ(wconfig.streams.size(), 1);
+    EXPECT_DOUBLE_EQ(wconfig.streams[0].let, 111.0);
+    EXPECT_DOUBLE_EQ(wconfig.streams[0].flux_phi, 123.0);
+    EXPECT_DOUBLE_EQ(wconfig.streams[0].max_time, 321.0);
+}
+
+TEST(LibertyFilesTests, JsonConfigTest) {
+    auto json =
+        R"json({
+  "model": {
+    "name": "random",
+    "params" : {}
+  },
+  "params": {
+    "liberty_paths": [
+        "file1.lib",
+        "file2.lib",
+        "file3.lib"
+    ]
+  }
+})json"_json;
+
+    GlobalOpts actual = json.get<GlobalOpts>();
+    auto& liberty_files = actual.liberty_paths;
+
+    EXPECT_EQ(liberty_files.size(), 3);
+    EXPECT_EQ(liberty_files[0], "file1.lib");
+    EXPECT_EQ(liberty_files[1], "file2.lib");
+    EXPECT_EQ(liberty_files[2], "file3.lib");
+}
+
+TEST(LibertyFilesTests, NoArgsTest) {
+    const int argc = 1;
+    const char* argv[argc] = {"test_bin"};
+    GlobalOpts actual = GlobalOpts::parse_cmd_args(argc, (char**)argv);
+    auto& liberty_files = actual.liberty_paths;
+
+    EXPECT_EQ(liberty_files.size(), 0);
+}
+
+TEST(LibertyFilesTests, ArgsTestWithEq) {
+    const int argc = 2;
+    const char* argv[argc] = {
+        "test_bin",
+        "--liberty_paths=file1.lib,file2.lib,file3.lib",
+    };
+    GlobalOpts actual = GlobalOpts::parse_cmd_args(argc, (char**)argv);
+    auto& liberty_files = actual.liberty_paths;
+
+    ASSERT_EQ(liberty_files.size(), 3);
+    EXPECT_EQ(liberty_files[0], "file1.lib");
+    EXPECT_EQ(liberty_files[1], "file2.lib");
+    EXPECT_EQ(liberty_files[2], "file3.lib");
+}
+
+TEST(LibertyFilesTests, ArgsTestWithoutEq) {
+    const int argc = 3;
+    const char* argv[argc] = {
+        "test_bin",
+        "--liberty_paths",
+        "file1.lib,file2.lib,file3.lib",
+    };
+    GlobalOpts actual = GlobalOpts::parse_cmd_args(argc, (char**)argv);
+    auto& liberty_files = actual.liberty_paths;
+
+    ASSERT_EQ(liberty_files.size(), 3);
+    EXPECT_EQ(liberty_files[0], "file1.lib");
+    EXPECT_EQ(liberty_files[1], "file2.lib");
+    EXPECT_EQ(liberty_files[2], "file3.lib");
 }

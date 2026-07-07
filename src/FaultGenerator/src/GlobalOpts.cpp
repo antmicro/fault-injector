@@ -40,6 +40,10 @@ ABSL_FLAG(std::string,
           config_file,
           "",
           "Path to configuration file. If this flag is present, all others are ignored.");
+ABSL_FLAG(std::vector<std::string>,
+          liberty_paths,
+          {},
+          "List of comma separated paths to liberty files.");
 
 #define GET_OR_DEFAULT(name) \
     json.value(#name, std::stoi(absl::GetFlagReflectionHandle(FLAGS_##name).DefaultValue()))
@@ -65,6 +69,7 @@ void from_json(const nlohmann::json& json, GlobalOpts& opts) {
     // Below line is forced by setting being called netlist when it's commandline argument and
     // netlist_path when it is in json config
     GET_OR_DEFAULT(fault_campaign_out);
+    opts.liberty_paths = params.value<std::vector<std::string>>("liberty_paths", {});
 #undef GET_OR_DEFAULT
 
     opts.strategy = FaultStrategyFactory::build_from_json(config, model);
@@ -78,18 +83,22 @@ GlobalOpts GlobalOpts::parse_cmd_args(int argc, char** argv) {
         FaultStrategy::Config config = {absl::GetFlag(FLAGS_num_of_events),
                                         absl::GetFlag(FLAGS_seed),
                                         absl::GetFlag(FLAGS_simulation_time)};
-        return {.sig_path_prefix = absl::GetFlag(FLAGS_sig_path_prefix),
-                .top_module = absl::GetFlag(FLAGS_top_module),
-                .top_instance = absl::GetFlag(FLAGS_top_instance),
-                .netlist_path = absl::GetFlag(FLAGS_netlist_path),
-                .fault_campaign_out = absl::GetFlag(FLAGS_fault_campaign_out),
-                .strategy = FaultStrategyFactory::default_strategy(config)};
+        // TODO Check that all required flags were passed
+        return {
+            .sig_path_prefix = absl::GetFlag(FLAGS_sig_path_prefix),
+            .top_module = absl::GetFlag(FLAGS_top_module),
+            .top_instance = absl::GetFlag(FLAGS_top_instance),
+            .netlist_path = absl::GetFlag(FLAGS_netlist_path),
+            .fault_campaign_out = absl::GetFlag(FLAGS_fault_campaign_out),
+            .strategy = FaultStrategyFactory::default_strategy(config),
+            .liberty_paths = absl::GetFlag(FLAGS_liberty_paths),
+        };
     } else {
         try {
             std::ifstream config_file{config_filepath};
             if (!config_file) {
-                std::cerr << "cannot access '" << config_filepath
-                          << "': No such file or directory\n";
+                std::error_code ec(errno, std::generic_category());
+                std::cerr << "Failed to open '" << config_filepath << "': " << ec.message() << "\n";
                 std::exit(1);
             }
             const auto config_json = nlohmann::json::parse(config_file);

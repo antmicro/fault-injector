@@ -3,7 +3,7 @@ image: debian:bookworm
 .build-setup: &build-setup
   before_get_sources:
     - apt-get -yq update > /dev/null && apt-get -yq upgrade
-    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake yosys
+    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake yosys gzip file grep
 
 stages:
   - prepare
@@ -41,8 +41,8 @@ run-test:
     - prepare-verilator
   script:
     - bash test.sh
+    - ctest --test-dir build -j --output-on-failure --timeout 60
     - bash src/FaultInjector/test/test.sh
-    - ctest --test-dir build -j
   artifacts:
     paths:
       - obj_dir
@@ -50,5 +50,19 @@ run-test:
       - worker.json
       - sim_no_fault.log
       - sim_fault.log
+      - build/Testing/Temporary/LastTest.log
     expire_in: 8 hours
+
+parser-test:
+  <<: *build-setup
+  stage: test
+  variables:
+    VERILATOR_ROOT: /ci/verilator
+  dependencies:
+    - prepare-verilator
+  before_script:
+    - git clone --depth 1 https://github.com/The-OpenROAD-Project/OpenROAD.git /ci/OpenROAD
+  script:
+    - ./build.sh
+    - src/FaultGenerator/test/testParser.sh /ci/OpenROAD/test build/src/FaultGenerator/test/LibertyParserBin
 

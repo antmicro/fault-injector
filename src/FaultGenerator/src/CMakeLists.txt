@@ -4,6 +4,7 @@ add_library(FaultGenerationToolLib
   FaultStrategyFactory.cpp
   FaultStrategyRandom.cpp
   FaultStrategyWeibull.cpp
+  LibertyParser.cpp
   GlobalOpts.cpp
   SignalCollector.cpp
 )

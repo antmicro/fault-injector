@@ -16,19 +16,24 @@
 
 #pragma once
 
-#include "FaultStrategy.h"
-
-#include <memory>
+#include <map>
+#include <optional>
 #include <string>
+#include <vector>
 
-struct GlobalOpts final {
-    std::string sig_path_prefix;
-    std::string top_module;
-    std::string top_instance;
-    std::string netlist_path;
-    std::string fault_campaign_out;
-    std::shared_ptr<FaultStrategy> strategy;
-    std::vector<std::string> liberty_paths;
+struct CellInfo {
+    double area;
+};
 
-    static GlobalOpts parse_cmd_args(int argc, char** argv);
+struct GlobalInfo {};
+
+struct LibertyInfo {
+    GlobalInfo globalInfo;
+    std::map<std::string, CellInfo> cells;
+};
+
+class LibertyParser final {
+   public:
+    static std::optional<LibertyInfo> parse(const std::string&);
+    static std::vector<LibertyInfo> parseFiles(const std::vector<std::string>&);
 };
