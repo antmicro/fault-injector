@@ -15,3 +15,10 @@ build
 .vscode
 .cache
 .gdb_history
+
+# Repos cloned for testing
+verilator
+
+# Synthesis artifacts
+test/veer/el2_veer_wrapper_post_synth.v
+test/veer/el2_veer_wrapper_synth.log

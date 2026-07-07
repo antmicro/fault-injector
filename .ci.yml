@@ -1,9 +1,9 @@
-image: debian:bookworm
+image: debian:trixie
 
 .build-setup: &build-setup
   before_get_sources:
     - apt-get -yq update > /dev/null && apt-get -yq upgrade
-    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake yosys gzip file grep
+    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake gzip file grep gawk lld clang libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev graphviz xdot
 
 stages:
   - prepare
@@ -32,6 +32,36 @@ prepare-verilator:
       - verilator
     expire_in: 8 hours
 
+prepare-yosys:
+  <<: *build-setup
+  stage: prepare
+  variables:
+    SCALENODE_CPU: 8
+    SCALENODE_RAM: 16000
+    CCACHE_DIR: .ccache
+  cache:
+    paths:
+     - $CCACHE_DIR
+  script:
+    - cd third_party/yosys
+    - git submodule update --init --recursive .
+    - make config-gcc
+    - make -j `nproc` CXX="ccache g++"
+    - make install
+    - cd ../
+    - export PATH=$(pwd)/yosys:$PATH
+    - export YOSYS_PREFIX=$(pwd)/yosys/
+    - ls -l $YOSYS_PREFIX
+    - cd yosys-slang
+    - git submodule update --init --recursive .
+    - make -j $(nproc) CXX="ccache g++" install
+    - mkdir ../yosys/share/plugins
+    - cp build/slang.so ../yosys/share/plugins
+  artifacts:
+    paths:
+      - third_party/yosys
+    expire_in: 8 hours
+
 run-test:
   <<: *build-setup
   stage: test
@@ -39,7 +69,9 @@ run-test:
     VERILATOR_ROOT: /ci/verilator
   dependencies:
     - prepare-verilator
+    - prepare-yosys
   script:
+    - export PATH=$(pwd)/third_party/yosys:$PATH
     - bash test.sh
     - ctest --test-dir build -j --output-on-failure --timeout 60
     - bash src/FaultInjector/test/test.sh
@@ -66,3 +98,58 @@ parser-test:
     - ./build.sh
     - src/FaultGenerator/test/testParser.sh /ci/OpenROAD/test build/src/FaultGenerator/test/LibertyParserBin
 
+.veer-setup: &veer-setup
+  before_get_sources:
+    - apt-get update &> /dev/null
+    - apt-get -y --no-install-recommends install
+      autoconf bc bison build-essential ca-certificates ccache clang
+      cmake flex gdb git gtkwave help2man libfl2 libfl-dev libclang-rt-18-dev
+      libgoogle-perftools-dev libsystemc libsystemc-dev perl wget python3-distro
+      z3 zlib1g zlib1g-dev time libssl-dev libbz2-dev libreadline-dev libsqlite3-dev
+      curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev
+      liblzma-dev python3-openssl python3-venv mold python3-full python3-yaml
+      python3 python3-dev python3-pip gfortran libopenblas-dev pkg-config
+      libbit-vector-perl liblz4-dev
+  before_script:
+    - cd third_party/Cores-VeeR-EL2
+    - git submodule update --init --recursive .
+    - python3 -m venv .venv
+    - source .venv/bin/activate
+    - pip install -r requirements.txt
+    - export RV_ROOT=$(pwd)
+    - $RV_ROOT/configs/veer.config -set=lockstep_enable=1 -snapshot=dual
+
+veer-dual-lockstep:
+  <<: *veer-setup
+  stage: test
+  variables:
+    VERILATOR_ROOT: /ci/verilator
+    SCALENODE_RAM: 16000
+    PYTHONUNBUFFERED: "TRUE"
+  script:
+    - export PATH="$(pwd)/verilator/bin:$PATH"
+    - cd third_party/Cores-VeeR-EL2
+    - export RV_ROOT=$(pwd)
+    - source .venv/bin/activate
+    - make -f $RV_ROOT/tools/Makefile verilator snapshot=dual
+
+veer-dual-lockstep-synth:
+  <<: *veer-setup
+  stage: test
+  variables:
+    SCALENODE_RAM: 16000
+    PYTHONUNBUFFERED: "TRUE"
+    TEST_DIR: "/ci/test/veer"
+    DESIGN_TOP: "el2_veer_wrapper"
+    DESIGN_FILE_LIST: "veer.flist"
+    SYNTH_TCL: "veer_synth.tcl"
+  dependencies:
+    - prepare-yosys
+  script:
+    - export PATH=$(pwd)/third_party/yosys:$PATH
+    - export RV_ROOT=$(pwd)/third_party/Cores-VeeR-EL2
+    - yosys -t -d -l ${TEST_DIR}/${DESIGN_TOP}_synth.log -c ${TEST_DIR}/${SYNTH_TCL}
+  artifacts:
+    paths:
+      - test/veer/el2_veer_wrapper_post_synth.v
+      - test/veer/el2_veer_wrapper_synth.log
