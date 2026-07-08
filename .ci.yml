@@ -7,7 +7,7 @@ stages:
 .build-setup: &build-setup
   before_get_sources:
     - apt-get -yq update > /dev/null && apt-get -yq upgrade
-    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake yosys gzip file grep gawk lld clang libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev graphviz xdot
+    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake gzip file grep gawk lld clang libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev graphviz xdot
 
 .veer-setup: &veer-setup
   before_get_sources:
@@ -91,7 +91,9 @@ run-self-tests:
     VERILATOR_ROOT: /ci/verilator
   dependencies:
     - prepare-verilator
+    - prepare-yosys
   script:
+    - export PATH=$(pwd)/third_party/yosys:$PATH
     - bash build.sh
     - ctest --test-dir build -j --output-on-failure --timeout 60
     - bash src/FaultInjector/test/test.sh
