@@ -66,6 +66,7 @@ run-test:
   <<: *build-setup
   stage: test
   variables:
+    SCALENODE_RAM: 8000
     VERILATOR_ROOT: /ci/verilator
   dependencies:
     - prepare-verilator
@@ -86,6 +87,7 @@ parser-test:
   <<: *build-setup
   stage: test
   variables:
+    SCALENODE_RAM: 8000
     VERILATOR_ROOT: /ci/verilator
   dependencies:
     - prepare-verilator
