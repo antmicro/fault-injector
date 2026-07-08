@@ -116,7 +116,7 @@ parser-test:
     - source .venv/bin/activate
     - pip install -r requirements.txt
     - export RV_ROOT=$(pwd)
-    - $RV_ROOT/configs/veer.config -set=lockstep_enable=1 -snapshot=dual
+    - $RV_ROOT/configs/veer.config -set=lockstep_enable=1 -set=lockstep_delay=2 -set=lockstep_regfile_enable=0 -snapshot=dual
 
 veer-dual-lockstep:
   <<: *veer-setup
