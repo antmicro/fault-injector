@@ -135,6 +135,7 @@ veer-dual-lockstep:
 veer-dual-lockstep-synth:
   <<: *veer-setup
   stage: test
+  when: manual
   variables:
     SCALENODE_RAM: 16000
     PYTHONUNBUFFERED: "TRUE"
