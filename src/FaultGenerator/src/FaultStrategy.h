@@ -19,6 +19,7 @@
 #include "FaultEvent.h"
 #include "Signal.h"
 
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -32,7 +33,8 @@ class FaultStrategy {
 
     const Config config;
 
-    virtual std::vector<FaultEvent> generate(const std::span<Signal>& signals) = 0;
+    virtual std::vector<FaultEvent> generate(std::span<const Signal> signals) = 0;
+    virtual std::shared_ptr<FaultStrategy> copy_with(FaultStrategy::Config) = 0;
 
    protected:
     FaultStrategy(const Config& config) : config(config) {}

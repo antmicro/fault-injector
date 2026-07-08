@@ -24,7 +24,7 @@
 
 RandomStrategy::RandomStrategy(const Config& config) : FaultStrategy(config) {}
 
-std::vector<FaultEvent> RandomStrategy::generate(const std::span<Signal>& signals) {
+std::vector<FaultEvent> RandomStrategy::generate(std::span<const Signal> signals) {
     std::mt19937 random_generator(config.seed);
 
     std::uniform_int_distribution<uint64_t> time_dist(0, config.simulation_time);
@@ -42,7 +42,8 @@ std::vector<FaultEvent> RandomStrategy::generate(const std::span<Signal>& signal
         FaultEvent& fault_event = fault_events[index];
         fault_event.time = time_values[index];
 
-        Signal& signal = signals[sig_dist(random_generator)];
+        auto idx = sig_dist(random_generator);
+        const Signal& signal = signals[idx];
 
         fault_event.signal_path = signal.signal_path;
         fault_event.bit_index = bit_dist(random_generator) % signal.num_of_bits;
@@ -51,4 +52,9 @@ std::vector<FaultEvent> RandomStrategy::generate(const std::span<Signal>& signal
                                : FaultEventType::SINGLE_EVENT_TRANSIENT;
     }
     return fault_events;
+}
+
+std::shared_ptr<FaultStrategy> RandomStrategy::copy_with(FaultStrategy::Config new_config) {
+    RandomStrategy oth = RandomStrategy(new_config);
+    return std::make_shared<RandomStrategy>(oth);
 }

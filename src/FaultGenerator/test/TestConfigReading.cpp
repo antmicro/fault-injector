@@ -46,7 +46,9 @@ TEST(RandomStrategyTests, ExampleTest) {
     "top_module": "dff_worker",
     "top_instance": "worker",
     "netlist_path": "worker.json",
-    "fault_campaign_out": "random_file.csv"
+    "fault_campaign_out": "random_file.csv",
+    "campaign_number": 26,
+    "thread_number": 15
   }
 })json"_json;
 
@@ -58,6 +60,8 @@ TEST(RandomStrategyTests, ExampleTest) {
     EXPECT_EQ(actual.top_instance, "worker");
     EXPECT_EQ(actual.netlist_path, "worker.json");
     EXPECT_EQ(actual.fault_campaign_out, "random_file.csv");
+    EXPECT_EQ(actual.campaign_number, 26);
+    EXPECT_EQ(actual.thread_number, 15);
 
     ASSERT_TRUE(random);
     EXPECT_EQ(random->config.num_of_events, 101);

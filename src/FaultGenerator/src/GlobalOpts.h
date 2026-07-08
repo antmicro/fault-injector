@@ -27,6 +27,8 @@ struct GlobalOpts final {
     std::string top_instance;
     std::string netlist_path;
     std::string fault_campaign_out;
+    std::uint64_t campaign_number;
+    std::uint32_t thread_number;
     std::shared_ptr<FaultStrategy> strategy;
     std::vector<std::string> liberty_paths;
 

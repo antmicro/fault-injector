@@ -3,7 +3,7 @@ image: debian:trixie
 .build-setup: &build-setup
   before_get_sources:
     - apt-get -yq update > /dev/null && apt-get -yq upgrade
-    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake gzip file grep gawk lld clang libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev graphviz xdot
+    - apt-get -yq install python3 make build-essential autoconf flex bison git ccache help2man curl cmake yosys gzip file grep gawk lld clang libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev graphviz xdot
 
 stages:
   - prepare
@@ -73,15 +73,12 @@ run-test:
   script:
     - export PATH=$(pwd)/third_party/yosys:$PATH
     - bash test.sh
+    - bash test-multiple.sh
     - ctest --test-dir build -j --output-on-failure --timeout 60
     - bash src/FaultInjector/test/test.sh
   artifacts:
     paths:
       - obj_dir
-      - fault_campaign_out.csv
-      - worker.json
-      - sim_no_fault.log
-      - sim_fault.log
       - build/Testing/Temporary/LastTest.log
     expire_in: 8 hours
 

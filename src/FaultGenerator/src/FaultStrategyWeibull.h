@@ -52,6 +52,8 @@ class WeibullStrategy : public FaultStrategy {
 
    public:
     explicit WeibullStrategy(const Config&, const WeibullConfig&);
-    std::vector<FaultEvent> generate(const std::span<Signal>&) override;
-    std::vector<FaultEvent> generate(const WeibullConfig::Stream&, const std::span<Signal>&);
+    std::vector<FaultEvent> generate(std::span<const Signal>) override;
+    std::vector<FaultEvent> generate(const WeibullConfig::Stream&, std::span<const Signal>);
+
+    std::shared_ptr<FaultStrategy> copy_with(FaultStrategy::Config) override;
 };

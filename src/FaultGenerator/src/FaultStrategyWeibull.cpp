@@ -16,6 +16,7 @@
 
 #include "FaultStrategyWeibull.h"
 
+#include "FaultEvent.h"
 #include "FaultStrategy.h"
 
 #include <algorithm>
@@ -62,7 +63,7 @@ struct History {
 WeibullStrategy::WeibullStrategy(const Config& config, const WeibullConfig& weibullConfig)
     : FaultStrategy(config), weibullConfig(weibullConfig) {}
 
-std::vector<FaultEvent> WeibullStrategy::generate(const std::span<Signal>& signals) {
+std::vector<FaultEvent> WeibullStrategy::generate(std::span<const Signal> signals) {
     std::vector<FaultEvent> result;
     for (size_t i = 0; i < weibullConfig.streams.size(); ++i) {
         std::vector<FaultEvent> current = generate(weibullConfig.streams[i], signals);
@@ -75,7 +76,7 @@ std::vector<FaultEvent> WeibullStrategy::generate(const std::span<Signal>& signa
 }
 
 std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& streamData,
-                                                  const std::span<Signal>& signals) {
+                                                  std::span<const Signal> signals) {
     std::vector<FaultEvent> result;
     // TODO support cells with different areas
     Cell cell{.area = weibullConfig.cell_area};
@@ -128,4 +129,9 @@ std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& s
     }
 
     return result;
+}
+
+std::shared_ptr<FaultStrategy> WeibullStrategy::copy_with(FaultStrategy::Config new_config) {
+    WeibullStrategy oth = WeibullStrategy(new_config, this->weibullConfig);
+    return std::make_shared<WeibullStrategy>(oth);
 }

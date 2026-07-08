@@ -221,6 +221,11 @@ class FaultInjector {
 
     void readScenario() {
         std::ifstream scenario(filename);
+        if (!scenario) {
+            std::error_code ec(errno, std::generic_category());
+            fin_printf("%%Error: Failed to open file '%s': %s\n", filename.c_str(),
+                       ec.message().c_str());
+        }
         std::string line;
         while (std::getline(scenario, line)) {
             auto event = parseEvent(line);
