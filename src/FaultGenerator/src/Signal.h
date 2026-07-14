@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <ostream>
 #include <string>
 
 enum class SignalType {
@@ -25,8 +26,25 @@ enum class SignalType {
     REGISTER,
 };
 
+inline std::ostream& operator<<(std::ostream& os, const SignalType& type) {
+    switch (type) {
+        case SignalType::REGISTER:
+            return os << "register";
+        case SignalType::WIRE:
+            return os << "wire";
+        default:
+            return os << "unknown";
+    }
+}
+
 struct Signal {
     std::string signal_path;
     std::uint32_t num_of_bits = 0;
     SignalType type = SignalType::UNKNOWN;
+
+    friend std::ostream& operator<<(std::ostream& os, const Signal& signal) {
+        return os << "{ .signal_path=" << signal.signal_path
+                  << ", .num_of_bits=" << signal.num_of_bits << ", .type=" << signal.type << " }";
+    }
 };
+

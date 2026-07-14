@@ -16,12 +16,22 @@
 
 #pragma once
 
-#include <optional>
+#include "GlobalOpts.h"
+
 #include <ostream>
 
-#include <numbers>
-namespace seu {
-static constexpr double deg2rad(double deg) {
-    return deg * std::numbers::pi / 180.0;
-}
-};  // namespace seu
+struct Cell {
+    std::string name;
+    std::string type;
+
+    friend std::ostream& operator<<(std::ostream& os, const Cell& cell) {
+        return os << "{ .name=" << cell.name << ", .type=" << cell.type << " }";
+    }
+};
+
+
+class IsFlipFlop {
+   public:
+    static bool check(const Cell& json);
+    static void ctor(const GlobalOpts& opts);
+};

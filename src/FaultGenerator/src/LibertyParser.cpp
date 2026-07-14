@@ -16,6 +16,9 @@
 
 #include "LibertyParser.h"
 
+#include <absl/log/check.h>
+#include <absl/log/log.h>
+
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
@@ -63,6 +66,7 @@ struct Token {
 };
 
 struct Lexer {
+    // TODO fill this class with LOGs
     const char* cur;
     const char* end;
     int bracket_depth = 0;
@@ -167,6 +171,7 @@ struct Item {
 struct Iterator;
 
 struct Parser {
+    // TODO fill this class with LOGs
     Lexer* lexer;
     int depth;
     Token cur;
@@ -177,12 +182,11 @@ struct Parser {
     void next_token() { cur = lexer->scan(); }
 
     bool expect(TokenKind k) {
-        static const char* names[] = {"end of file", "value", "'('", "')'", "'{'",
-                                      "'}'",         "':'",   "';'", "','"};
+        static const char* names[] = {
+            "end of file", "value", "'('", "')'", "'{'", "'}'", "':'", "';'", "','"};
         bool ok = cur.is(k);
         if (!ok) {
-            fprintf(stderr, "warning: expected %s, got '%.*s'\n", names[(int)k],
-                    (int)cur.str.size(), cur.str.data());
+            LOG(WARNING) << "expected " << names[(int)k] << ", got '" << cur.str << "'";
         }
         next_token();
         return ok;
@@ -212,7 +216,7 @@ struct Parser {
         while (true) {
             if (cur.is(Eof)) {
                 if (depth > 0) {
-                    fprintf(stderr, "warning: unexpected end of file\n");
+                    LOG(WARNING) << "unexpected end of file";
                 }
                 return {};
             }
@@ -221,7 +225,7 @@ struct Parser {
                     lexer->cur = cur.str.data();  // restore to '}' for parent's auto-skip
                     return {};
                 }
-                fprintf(stderr, "warning: unexpected '}'\n");
+                LOG(WARNING) << "unexpected '}'";
                 next_token();
                 continue;
             }
@@ -310,6 +314,8 @@ inline Iterator Parser::end() {
 
 /*****************************************************************************/
 
+namespace {
+
 bool isGzFile(std::ifstream& file) {
     auto file_begin_cursor = file.tellg();
 
@@ -321,16 +327,26 @@ bool isGzFile(std::ifstream& file) {
     return b1 == 0x1f && b2 == 0x8b;
 }
 
+std::optional<double> stod_opt(std::string_view s) {
+    try {
+        return std::stod(s.data());
+    } catch (std::exception& e) {
+        LOG(WARNING) << "Failed to parse double" << e.what();
+    } catch (...) {
+    }
+    return std::nullopt;
+}
+
+}  // namespace
+
 std::optional<LibertyInfo> LibertyParser::parse(const std::string& filepath) {
     std::ifstream file{filepath};
     if (!file) {
-        fprintf(stderr, "Error while opening %s\n", filepath.c_str());
-        fprintf(stderr, "Skipping file\n");
+        PLOG(ERROR) << "Error while opening '" << filepath << "'. Skipping file";
         return std::nullopt;
     }
     if (isGzFile(file)) {
-        fprintf(stderr, "Error: Cannot parse a compressed file %s\n", filepath.c_str());
-        fprintf(stderr, "Skipping file\n");
+        LOG(WARNING) << "Cannot parse a compressed file '" << filepath << "'. Skipping file";
         return std::nullopt;
     }
 
@@ -346,16 +362,32 @@ std::optional<LibertyInfo> LibertyParser::parse(const std::string& filepath) {
                 continue;
             }
             auto name = item.args[0];
-            std::string_view area = "?";
+            std::optional<double> area;
+            std::optional<FlipFlopInfo> ff_info;
             for (auto [field, _] : cell_parser) {
                 if (field.name == "area") {
-                    area = field.args[0];
+                    area = stod_opt(field.args[0]);
+                    if (area) {
+                        VLOG(2) << "Cell '" << name << "' has area: " << *area;
+                    } else {
+                        VLOG(2) << "Cell '" << name << "' has area: nullopt";
+                    }
+                } else if (field.name == "ff") {
+                    ff_info = FlipFlopInfo{};
+                    VLOG(2) << "Cell '" << name << "' is ff: " << *ff_info;
                 }
             }
             try {
-                res.cells.insert({std::string(name), {.area = std::stod(std::string(area))}});
-            } catch (...) {
-                continue;
+                res.cells.insert(
+                    {std::string(name),
+                     CellInfo{
+                         .area = area,
+                         .ff_info = ff_info,
+                     }}
+                );
+                VLOG(3) << "Successful insertiion of cell: " << res.cells[std::string(name)];
+            } catch (std::exception& e) {
+                VLOG(2) << "Insertion failed: " << e.what();
             }
         }
     }
@@ -375,4 +407,23 @@ std::vector<LibertyInfo> LibertyParser::parseFiles(const std::vector<std::string
         res.push_back(std::move(*info_opt));
     }
     return res;
+}
+
+/*****************************************************************************/
+
+Liberty::Liberty(const std::vector<std::string>& filepaths) {
+    infos = LibertyParser::parseFiles(filepaths);
+
+    /* Register ff_types */
+    for (const auto& infos : infos) {
+        for (const auto& [cell_name, cell_info] : infos.cells) {
+            if (cell_info.ff_info) {
+                ff_types.insert(cell_name);
+            }
+        }
+    }
+}
+
+bool Liberty::isFF(std::string_view type) const {
+    return ff_types.contains(type);
 }

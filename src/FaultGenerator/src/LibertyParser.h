@@ -18,11 +18,34 @@
 
 #include <map>
 #include <optional>
+#include <ostream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
+struct FlipFlopInfo {
+    friend std::ostream& operator<<(std::ostream& os, const FlipFlopInfo&) { return os << "{}"; }
+};
+
 struct CellInfo {
-    double area;
+    std::optional<double> area;
+    std::optional<FlipFlopInfo> ff_info;
+
+    friend std::ostream& operator<<(std::ostream& os, const CellInfo& cell) {
+        os << "{ .area=";
+        if (cell.area) {
+            os << cell.area.value();
+        } else {
+            os << "nullopt";
+        }
+        os << ", .ff_info=";
+        if (cell.ff_info) {
+            os << cell.ff_info.value();
+        } else {
+            os << "nullopt";
+        }
+        return os << " }";
+    }
 };
 
 struct GlobalInfo {};
@@ -36,4 +59,14 @@ class LibertyParser final {
    public:
     static std::optional<LibertyInfo> parse(const std::string&);
     static std::vector<LibertyInfo> parseFiles(const std::vector<std::string>&);
+};
+
+class Liberty {
+    std::vector<LibertyInfo> infos;
+    std::unordered_set<std::string_view> ff_types;
+
+   public:
+    Liberty() = default;
+    Liberty(const std::vector<std::string>&);
+    bool isFF(std::string_view) const;
 };

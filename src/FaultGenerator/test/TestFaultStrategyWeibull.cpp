@@ -94,9 +94,11 @@ int main() {
             std::abs(static_cast<double>(count) - static_cast<double>(expected)) / expected;
 
         if (diff > tolerance) {
-            std::printf("FAIL stream #%zu: got %llu, expected %llu (%.2f%% diff)\n", i,
+            std::printf("FAIL stream #%zu: got %llu, expected %llu (%.2f%% diff)\n",
+                        i,
                         static_cast<unsigned long long>(count),
-                        static_cast<unsigned long long>(expected), diff * 100.0);
+                        static_cast<unsigned long long>(expected),
+                        diff * 100.0);
             failed = 1;
         }
     }
@@ -109,12 +111,15 @@ int main() {
         std::abs(static_cast<double>(all_events.size()) - static_cast<double>(expected_total)) /
         expected_total;
     if (total_diff > 0.05) {
-        std::printf("FAIL: total events %zu, expected %llu (%.2f%% diff)\n", all_events.size(),
-                    static_cast<unsigned long long>(expected_total), total_diff * 100.0);
+        std::printf("FAIL: total events %zu, expected %llu (%.2f%% diff)\n",
+                    all_events.size(),
+                    static_cast<unsigned long long>(expected_total),
+                    total_diff * 100.0);
         return 1;
     }
 
-    std::printf("PASS: all %zu streams within tolerance, total %zu events\n", num_streams,
+    std::printf("PASS: all %zu streams within tolerance, total %zu events\n",
+                num_streams,
                 all_events.size());
     return 0;
 }

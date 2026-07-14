@@ -45,7 +45,8 @@ class SignalCollector {
         std::vector<Signal> signals;
     };
 
-    std::vector<Module> collectModules(const nlohmann::json& json) const;
+    static std::vector<Module> collectModules(const nlohmann::json& json);
+    static std::string dumpAllModules(const std::vector<Module>& modules);
     int findTopModule(std::vector<Module>& modules) const;
     void recursivelyCollectSignals(std::vector<Signal>& collected_signals,
                                    std::string_view current_path,

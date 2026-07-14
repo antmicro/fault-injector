@@ -97,7 +97,6 @@ std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& s
 
         int stream_id = indx_list[cell_id];
 
-        double prev_time = curr_time;
         curr_time = event_time[cell_id][stream_id];
 
         // Finish
@@ -108,7 +107,8 @@ std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& s
         // Store event history
         history[cell_id].emplace_back(History{curr_time, stream_id});
         const auto& signal = signals[cell_id];
-        result.emplace_back(FaultEvent{static_cast<std::uint64_t>(curr_time), signal.signal_path,
+        result.emplace_back(FaultEvent{static_cast<std::uint64_t>(curr_time),
+                                       signal.signal_path,
                                        bit_dist(gen.random_generator) % signal.num_of_bits,
                                        FaultEventType::SINGLE_EVENT_UPSET});
         ++total_hits;

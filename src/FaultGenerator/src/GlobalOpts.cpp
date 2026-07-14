@@ -20,10 +20,12 @@
 
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
+#include <absl/log/check.h>
+#include <absl/log/initialize.h>
+#include <absl/log/log.h>
 #include <nlohmann/json.hpp>
 
 #include <fstream>
-#include <iostream>
 
 ABSL_FLAG(std::string, sig_path_prefix, "", "Prefix for signal paths, i.e. `top`.");
 ABSL_FLAG(std::string, top_module, "", "Name of the top module.");
@@ -65,22 +67,31 @@ ABSL_FLAG(std::vector<std::string>,
 
 void from_json(const nlohmann::json& json, FaultStrategy::Config& config) {
     if (absl::GetFlag(FLAGS_num_of_events)) {
+        VLOG(2) << "Config.num_of_events set from flag";
         config.num_of_events = absl::GetFlag(FLAGS_num_of_events).value();
     } else {
+        VLOG(2) << "Config.num_of_events set from json/default";
         config.num_of_events = json.value("num_of_events", num_of_events_default);
     }
 
     if (absl::GetFlag(FLAGS_seed)) {
+        VLOG(2) << "Config.seed set from flag";
         config.seed = absl::GetFlag(FLAGS_seed).value();
     } else {
+        VLOG(2) << "Config.seed set from json/default";
         config.seed = json.value("seed", seed_default);
     }
 
     if (absl::GetFlag(FLAGS_simulation_time)) {
+        VLOG(2) << "Config.simulation_time set from flag";
         config.simulation_time = absl::GetFlag(FLAGS_simulation_time).value();
     } else {
+        VLOG(2) << "Config.simulation_time set from json/default";
         config.simulation_time = json.value("simulation_time", simulation_time_default);
     }
+
+    VLOG(3) << "Config{ .num_of_events=" << config.num_of_events << ", .seed=" << config.seed
+            << ", .simulation_time=" << config.simulation_time << " }";
 }
 
 void from_json(const nlohmann::json& json, GlobalOpts& opts) {
@@ -101,17 +112,23 @@ void from_json(const nlohmann::json& json, GlobalOpts& opts) {
         "campaign_number",
         std::stoi(absl::GetFlagReflectionHandle(FLAGS_campaign_number).DefaultValue()));
     if (absl::GetFlag(FLAGS_thread_number)) {
+        VLOG(2) << "GlobalOpts.thread_number set from flag";
         opts.thread_number = absl::GetFlag(FLAGS_thread_number).value();
     } else {
+        VLOG(2) << "GlobalOpts.thread_number set from json/default";
         opts.thread_number = params.value("thread_number", thread_number_default);
     }
-    opts.liberty_paths = params.value<std::vector<std::string>>("liberty_paths", {});
+    auto liberty_paths = params.value<std::vector<std::string>>("liberty_paths", {});
+    opts.liberty = Liberty(liberty_paths);
 
     if (absl::GetFlag(FLAGS_fault_campaign_out)) {
+        VLOG(2) << "GlobalOpts.fault_campaign_out set from flag";
         opts.fault_campaign_out = absl::GetFlag(FLAGS_fault_campaign_out).value();
     } else if (params.contains("fault_campaign_out")) {
+        VLOG(2) << "GlobalOpts.fault_campaign_out set from json";
         opts.fault_campaign_out = params["fault_campaign_out"].get<std::string>();
     } else {
+        VLOG(2) << "GlobalOpts.fault_campaign_out set from default";
         if (opts.campaign_number == 1) {
             opts.fault_campaign_out = fault_campaign_out_file_defualt;
         } else {
@@ -121,8 +138,9 @@ void from_json(const nlohmann::json& json, GlobalOpts& opts) {
     opts.strategy = FaultStrategyFactory::buildFromJson(config, model);
 }
 
-GlobalOpts GlobalOpts::parse_cmd_args(int argc, char** argv) {
+GlobalOpts GlobalOpts::parseCmdArgs(int argc, char** argv) {
     absl::ParseCommandLine(argc, argv);
+    absl::InitializeLog();
 
     std::string config_filepath = absl::GetFlag(FLAGS_config_file);
     if (config_filepath.empty()) {
@@ -134,14 +152,18 @@ GlobalOpts GlobalOpts::parse_cmd_args(int argc, char** argv) {
         std::uint64_t campaign_number = absl::GetFlag(FLAGS_campaign_number);
         std::string fault_campaign_out;
         if (absl::GetFlag(FLAGS_fault_campaign_out)) {
+            VLOG(2) << "GlobalOpts.fault_campaign_out set from flag";
             fault_campaign_out = absl::GetFlag(FLAGS_fault_campaign_out).value();
         } else {
+            VLOG(2) << "GlobalOpts.fault_campaign_out set from default";
             if (campaign_number == 1) {
                 fault_campaign_out = fault_campaign_out_file_defualt;
             } else {
                 fault_campaign_out = fault_campaign_out_directory_defualt;
             }
         }
+
+        auto liberty_paths = absl::GetFlag(FLAGS_liberty_paths);
 
         // TODO Check that all required flags were passed
         return {
@@ -153,24 +175,18 @@ GlobalOpts GlobalOpts::parse_cmd_args(int argc, char** argv) {
             .campaign_number = campaign_number,
             .thread_number = absl::GetFlag(FLAGS_thread_number).value_or(thread_number_default),
             .strategy = FaultStrategyFactory::defaultStrategy(config),
-            .liberty_paths = absl::GetFlag(FLAGS_liberty_paths),
+            .liberty = Liberty(liberty_paths),
         };
     } else {
         try {
             std::ifstream config_file{config_filepath};
-            if (!config_file) {
-                std::error_code ec(errno, std::generic_category());
-                std::cerr << "%%Error: Failed to open '" << config_filepath << "': " << ec.message()
-                          << "\n";
-                std::exit(1);
-            }
+            PCHECK(config_file) << "%%Error: Failed to open '" << config_filepath << "'";
             const auto config_json = nlohmann::json::parse(config_file);
 
             return config_json.get<GlobalOpts>();
         } catch (std::exception& error) {
-            std::cerr << "%%Error: Ill formed config file [" << config_filepath << "]\n";
-            std::cerr << error.what() << "\n";
-            std::exit(1);
+            LOG(FATAL) << "%%Error: Ill formed config file '" << config_filepath << "'"
+                       << error.what() << "\n";
         }
     }
 }

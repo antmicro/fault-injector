@@ -83,6 +83,18 @@ prepare-yosys:
       - third_party/yosys
     expire_in: 8 hours
 
+check-formatting:
+  <<: *build-setup
+  stage: test
+  before_script:
+    - apt-get update && apt-get install -y clang-format-19 clang-tidy-19 cmake build-essential
+    - cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+  script:
+    - echo "Checking formatting..."
+    - find . -path "./build/_deps" -prune -o -regextype posix-egrep -regex "$SOURCE_FILES_REGEX" -print0 | xargs -0 clang-format-19 --dry-run --Werror
+    - echo "Checking linting..."
+    - run-clang-tidy-19 -p build "^(?!.*build/_deps).*($SOURCE_FILES_REGEX)$" -header-filter="^(?!.*build/_deps).*" -warnings-as-errors="*"
+
 run-self-tests:
   <<: *build-setup
   stage: test
@@ -117,6 +129,7 @@ run-worker-end-to-end-tests:
     - bash build.sh
     - bash test.sh
     - bash test-multiple.sh
+    - bash test-synth-regression.sh
   artifacts:
     paths:
       - obj_dir

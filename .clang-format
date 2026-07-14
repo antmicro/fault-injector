@@ -3,6 +3,8 @@ BasedOnStyle: Chromium
 ColumnLimit:  100
 IndentWidth: 4
 AlignEscapedNewlines: DontAlign
+AlignAfterOpenBracket: BlockIndent
 InsertBraces: true
 SortIncludes: true
 IncludeBlocks: Preserve
+BinPackArguments: false

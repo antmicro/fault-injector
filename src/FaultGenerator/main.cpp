@@ -17,8 +17,12 @@
 #include "FaultEvent.h"
 #include "FaultStrategy.h"
 #include "GlobalOpts.h"
+#include "IsFlipFlopPredicate.h"
 #include "Signal.h"
 #include "SignalCollector.h"
+
+#include <absl/log/check.h>
+#include <absl/log/log.h>
 
 #include <execution>
 #include <filesystem>
@@ -59,8 +63,7 @@ std::vector<TaskInput> generate_tasks(const std::shared_ptr<FaultStrategy> strat
 }
 
 void generate_single_campaign(const TaskInput& input) {
-    std::osyncstream(std::clog) << "[Thread#" << std::this_thread::get_id()
-                                << "] generate_single_campaign" << std::endl;
+    LOG(INFO) << "call generate_single_campaign" << std::endl;
     const std::vector<FaultEvent> fault_events = input.strategy->generate(input.signals);
     std::ofstream of(input.output_file);
     if (!of) {
@@ -75,10 +78,12 @@ void generate_single_campaign(const TaskInput& input) {
 }
 
 void generate_many_campaigns(const GlobalOpts& opts, std::vector<Signal>&& signals) {
-    std::osyncstream(std::clog) << "[Thread#" << std::this_thread::get_id()
-                                << "] generate_many_campaigns" << std::endl;
-    std::vector<TaskInput> tasks = generate_tasks(opts.strategy, signals, opts.fault_campaign_out,
-                                                  opts.strategy->config.seed, opts.campaign_number);
+    LOG(INFO) << "call generate_many_campaigns" << std::endl;
+    std::vector<TaskInput> tasks = generate_tasks(opts.strategy,
+                                                  signals,
+                                                  opts.fault_campaign_out,
+                                                  opts.strategy->config.seed,
+                                                  opts.campaign_number);
     auto num_workers =
         std::max(1u, std::min(opts.thread_number, std::thread::hardware_concurrency()));
 
@@ -113,21 +118,17 @@ void create_directory(std::string_view path) {
         if (create_directories(path)) {
             return;
         }
-        ss << "Cannot create directory '" << path << "'";
+        PLOG(FATAL) << "Cannot create directory '" << path << "'";
     } catch (std::exception& e) {
-        ss << e.what();
+        PLOG(FATAL) << e.what();
     }
-    std::cerr << "%%Error: " << ss.str() << "\n";
-    std::exit(1);
 }
 
 int main(int argc, char* argv[]) {
-    const GlobalOpts opts = GlobalOpts::parse_cmd_args(argc, argv);
+    const GlobalOpts opts = GlobalOpts::parseCmdArgs(argc, argv);
+    IsFlipFlop::ctor(opts);
 
-    if (opts.campaign_number < 1) {
-        std::cerr << "Cannot run less than one campaign\n";
-        std::exit(1);
-    }
+    CHECK(opts.campaign_number >= 1) << "Cannot run less than one campaign";
 
     std::vector<Signal> signals =
         SignalCollector(opts.top_module, opts.top_instance, opts.sig_path_prefix)

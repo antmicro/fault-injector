@@ -16,28 +16,25 @@
 
 #include "SignalCollector.h"
 
+#include "IsFlipFlopPredicate.h"
+
 #include <bitset>
 #include <fstream>
-#include <iostream>
-#include <unordered_set>
+#include <sstream>
+#include <string_view>
 
+#include <absl/log/check.h>
+#include <absl/log/log.h>
 #include <absl/strings/str_cat.h>
 
 #include "Signal.h"
 
 namespace {
 
-// FIXME use .lib for that
-bool isFlipFlop(std::string_view cell_name) {
-    static std::unordered_set<std::string_view> ff_types = {
-        "$dff",   "$adff",   "$aldff",  "$dffsr", "$sdff",  "$dffe",
-        "$adffe", "$aldffe", "$dffsre", "$sdffe", "$sdffce"};
-    std::string_view cell_ff_type = cell_name.substr(cell_name.find_last_of('$'));
-    return ff_types.contains(cell_ff_type);
-}
-
-unsigned int getSignalWidth(const std::string& width_bits) {
-    return std::bitset<32>(width_bits).to_ulong();
+/** How many bits parameter.WIDTH takes as a string */
+constexpr unsigned int SIGNAL_WIDTH_PARAMETER_LENGTH = 32;
+unsigned int getSignalWidth(std::string_view width_bits) {
+    return std::bitset<SIGNAL_WIDTH_PARAMETER_LENGTH>(std::string(width_bits)).to_ulong();
 }
 
 std::string_view getFFCellName(std::string_view cell_name) {
@@ -51,61 +48,31 @@ std::string combineSignalPath(std::string_view current, std::string_view next) {
     return absl::StrCat(current, ".", next);
 }
 
-static constexpr int INVALID_TOP_MODULE_INDEX = -1;
-
 }  // namespace
 
 std::vector<Signal> SignalCollector::collectFromFile(const std::string& netlist_filepath) const {
     std::ifstream netlist_file(netlist_filepath);
-    if (!netlist_file) {
-        std::cerr << "cannot access netlist file '" << netlist_filepath
-                  << "': No such file or directory\n";
-        std::exit(1);
-    }
+    PCHECK(netlist_file) << "Cannot access netlist file '" << netlist_filepath << "'";
 
     nlohmann::json netlist_json = nlohmann::json::parse(netlist_file);
-    return collectFromJSON(netlist_json);
+    auto result = collectFromJSON(netlist_json);
+    return std::move(result);
 }
 
 std::vector<Signal> SignalCollector::collectFromJSON(const nlohmann::json& json) const {
     std::vector<Module> collected_modules = collectModules(json);
-    int top_module_index = findTopModule(collected_modules);
-    if (top_module_index == INVALID_TOP_MODULE_INDEX) {
-        return {};
-    }
-    std::string starting_path = combineSignalPath(prefix_path, top_instance);
-    std::vector<Signal> collected_signals;
-    recursivelyCollectSignals(collected_signals, starting_path, collected_modules,
-                              collected_modules[top_module_index]);
-    return collected_signals;
-}
 
-std::vector<SignalCollector::Module> SignalCollector::collectModules(
-    const nlohmann::json& json) const {
-    std::unordered_map<std::string, unsigned int> existing_modules;
-    std::vector<Module> modules;
-    for (const auto& [module_key, module_value] : json["modules"].items()) {
-        Module module;
-        module.name = module_key;
-        for (const auto& [cell_key, cell_value] : module_value["cells"].items()) {
-            const std::string& type = cell_value["type"].get<std::string>();
-            // TODO: it assumes child modules were declared earlier in the netlist
-            // json. For more robustness, this should collect module names and then
-            // resolve indices after all modules were gathered.
-            if (auto it = existing_modules.find(type); it != existing_modules.end()) {
-                module.child_modules.emplace_back(cell_key, it->second);
-            } else if (isFlipFlop(cell_key)) {
-                const auto& params = cell_value["parameters"];
-                const auto& width = params["WIDTH"];
-                module.signals.emplace_back(
-                    std::string{getFFCellName(cell_key)}, getSignalWidth(width.get<std::string>()),
-                    isFlipFlop(cell_key) ? SignalType::REGISTER : SignalType::WIRE);
-            }
-        }
-        existing_modules[module.name] = modules.size();
-        modules.emplace_back(std::move(module));
-    }
-    return modules;
+    int top_module_index = findTopModule(collected_modules);
+
+    std::string starting_path = combineSignalPath(prefix_path, top_instance);
+
+    std::vector<Signal> collected_signals;
+    recursivelyCollectSignals(
+        collected_signals, starting_path, collected_modules, collected_modules[top_module_index]
+    );
+
+    CHECK(!collected_signals.empty()) << "No signals found, cannot generate faults";
+    return collected_signals;
 }
 
 int SignalCollector::findTopModule(std::vector<SignalCollector::Module>& modules) const {
@@ -114,17 +81,95 @@ int SignalCollector::findTopModule(std::vector<SignalCollector::Module>& modules
             return index;
         }
     }
-    std::cerr << "Unable to find given top module!\n";
-    return INVALID_TOP_MODULE_INDEX;
+    VLOG(3) << dumpAllModules(modules);
+    VLOG(3) << "Top module: " << top_module;
+    LOG(FATAL) << "Top module not found. Cannot generate faults without signals.";
 }
 
-void SignalCollector::recursivelyCollectSignals(std::vector<Signal>& collected_signals,
-                                                std::string_view current_path,
-                                                const std::vector<Module>& modules,
-                                                const Module& module) const {
+std::string SignalCollector::dumpAllModules(const std::vector<Module>& modules) {
+    std::stringstream ss;
+    for (const auto& module : modules) {
+        ss << "Module: " << module.name << "\n";
+        ss << "  Signals:\n";
+        for (const auto& signal : module.signals) {
+            ss << "    " << signal << "\n";
+        }
+        for (const auto& [instance_name, module_index] : module.child_modules) {
+            ss << "  Child modules:\n";
+            ss << "    { " << instance_name << ": " << modules[module_index].name << " }\n";
+        }
+        ss << "\n";
+    }
+    return ss.str();
+}
+
+Cell getCellFromJSON(const std::string& name, const nlohmann::json& cell_json) {
+    return {.name = name, .type = cell_json.value("type", "")};
+}
+
+std::vector<SignalCollector::Module> SignalCollector::collectModules(const nlohmann::json& json) {
+    std::unordered_map<std::string, unsigned int> existing_modules;
+    std::vector<Module> modules;
+
+    // Fill existing_modules
+    for (const auto& [name, _] : json["modules"].items()) {
+        existing_modules[name] = modules.size();
+        modules.push_back({name});
+    }
+
+    for (const auto& [module_key, module_value] : json["modules"].items()) {
+        Module module;
+        module.name = module_key;
+        for (const auto& [cell_key, cell_value] : module_value["cells"].items()) {
+            Cell cell = getCellFromJSON(cell_key, cell_value);
+
+            if (auto it = existing_modules.find(cell.type); it != existing_modules.end()) {
+                LOG(INFO) << "Cell's '" << cell_key << "' is child of module '" << it->first << "'";
+                module.child_modules.emplace_back(cell_key, it->second);
+            } else if (IsFlipFlop::check(cell)) {
+                LOG(INFO) << "Cell '" << cell_key << "' is a flip-flop";
+                if (!cell_value.contains("parameters")) {
+                    LOG(WARNING) << "Cell '" << cell_key
+                                 << "' has no property 'parameters', Skipping cell.";
+                    continue;
+                }
+                const auto& params = cell_value["parameters"];
+                unsigned int width;
+                if (!params.contains("WIDTH")) {
+                    LOG(WARNING) << "Cell '" << cell_key
+                                 << "' has no property 'parameters.WIDTH', setting value to 1.";
+                    // FIXME: During synthesis, signal with WIDTH n is split into n signals
+                    // (presumably with WIDTH 1), The question is if we should treat them as
+                    // separate signals, or to somehow join them back together
+                    width = 1;
+                } else {
+                    width = getSignalWidth(params["WIDTH"].get<std::string_view>());
+                }
+                module.signals.emplace_back(
+                    std::string{getFFCellName(cell_key)}, width, SignalType::REGISTER
+                );
+                VLOG(3) << "Found signal " << module.signals.back();
+            } else {
+                VLOG(1) << "Cell '" << cell_key << "' is not a flip-flop. Skipping";
+            }
+        }
+        modules[existing_modules[module.name]] = std::move(module);
+    }
+    CHECK(!modules.empty()) << "No modules found";
+    return modules;
+}
+
+void SignalCollector::recursivelyCollectSignals(
+    std::vector<Signal>& collected_signals,
+    std::string_view current_path,
+    const std::vector<Module>& modules,
+    const Module& module
+) const {
+    VLOG(2) << "Collecting signals for '" << module.name << "' under prefix: " << current_path;
     for (const Signal& signal : module.signals) {
-        collected_signals.emplace_back(combineSignalPath(current_path, signal.signal_path),
-                                       signal.num_of_bits, signal.type);
+        collected_signals.emplace_back(
+            combineSignalPath(current_path, signal.signal_path), signal.num_of_bits, signal.type
+        );
     }
 
     for (const auto& [instance_name, module_index] : module.child_modules) {

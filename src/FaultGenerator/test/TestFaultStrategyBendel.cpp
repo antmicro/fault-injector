@@ -37,7 +37,7 @@ std::vector<Signal> createSignals(size_t count) {
     return signals;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
 TEST(BendelGenerationTest, CountsWithinTolerance) {
     // From bendel_fit.py
@@ -75,9 +75,8 @@ TEST(BendelGenerationTest, CountsWithinTolerance) {
         std::uint64_t expected = expected_counts[i];
         double diff =
             std::abs(static_cast<double>(count) - static_cast<double>(expected)) / expected;
-        EXPECT_LE(diff, stream_tolerance)
-            << "stream #" << i << ": got " << count << ", expected " << expected
-            << " (" << diff * 100.0 << "% diff)";
+        EXPECT_LE(diff, stream_tolerance) << "stream #" << i << ": got " << count << ", expected "
+                                          << expected << " (" << diff * 100.0 << "% diff)";
         all_events.insert(all_events.end(), stream_events.begin(), stream_events.end());
     }
 
@@ -85,6 +84,6 @@ TEST(BendelGenerationTest, CountsWithinTolerance) {
         std::abs(static_cast<double>(all_events.size()) - static_cast<double>(expected_total)) /
         expected_total;
     EXPECT_LE(total_diff, total_tolerance)
-        << "total events " << all_events.size() << ", expected " << expected_total
-        << " (" << total_diff * 100.0 << "% diff)";
+        << "total events " << all_events.size() << ", expected " << expected_total << " ("
+        << total_diff * 100.0 << "% diff)";
 }

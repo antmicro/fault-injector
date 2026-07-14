@@ -9,7 +9,10 @@ add_executable(FaultGenerationTool main.cpp)
 target_link_libraries(FaultGenerationTool
   PRIVATE
     FaultGenerationToolLib
-    nlohmann_json::nlohmann_json)
+    nlohmann_json::nlohmann_json
+    absl::log
+    absl::check
+)
 
 # Include unit tests
 if(BUILD_TESTING)

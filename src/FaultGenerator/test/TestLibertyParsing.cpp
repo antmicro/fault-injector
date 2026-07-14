@@ -32,13 +32,16 @@ TEST(LibParsing, ExtractFromExampleLib) {
 
     // Cell DVBX1
     ASSERT_TRUE(actual.cells.contains("DCBX1"));
-    EXPECT_DOUBLE_EQ(actual.cells.at("DCBX1").area, 18.0001);
+    ASSERT_TRUE(actual.cells.at("DCBX1").area);
+    EXPECT_DOUBLE_EQ(actual.cells.at("DCBX1").area.value(), 18.0001);
 
     // Cell INVX1
     ASSERT_TRUE(actual.cells.contains("INVX1"));
-    EXPECT_DOUBLE_EQ(actual.cells.at("INVX1").area, 3);
+    ASSERT_TRUE(actual.cells.at("INVX1").area);
+    EXPECT_DOUBLE_EQ(actual.cells.at("INVX1").area.value(), 3);
 
     // Cell NAND2X1
     ASSERT_TRUE(actual.cells.contains("NAND2X1"));
-    EXPECT_DOUBLE_EQ(actual.cells.at("NAND2X1").area, 4);
+    ASSERT_TRUE(actual.cells.at("NAND2X1").area);
+    EXPECT_DOUBLE_EQ(actual.cells.at("NAND2X1").area.value(), 4);
 }

@@ -6,6 +6,7 @@ add_library(FaultGenerationToolLib
   FaultStrategyRandom.cpp
   FaultStrategyWeibull.cpp
   GlobalOpts.cpp
+  IsFlipFlopPredicate.cpp
   LibertyParser.cpp
   SignalCollector.cpp
 )
@@ -17,5 +18,10 @@ target_link_libraries(FaultGenerationToolLib
     nlohmann_json::nlohmann_json
     absl::flags
     absl::flags_parse
-    absl::strings)
+    absl::strings
+    absl::log
+    absl::log_initialize
+    absl::check
+    "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>"
+)
 

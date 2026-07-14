@@ -71,7 +71,8 @@ std::vector<FaultEvent> BendelStrategy::generate(const BendelConfig::Stream& str
         }
 
         const auto& signal = signals[cell_id];
-        result.emplace_back(static_cast<std::uint64_t>(curr_time), signal.signal_path,
+        result.emplace_back(static_cast<std::uint64_t>(curr_time),
+                            signal.signal_path,
                             bit_dist(gen.random_generator) % signal.num_of_bits,
                             FaultEventType::SINGLE_EVENT_UPSET);
 

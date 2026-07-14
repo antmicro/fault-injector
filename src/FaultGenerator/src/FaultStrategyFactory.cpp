@@ -21,9 +21,12 @@
 #include "FaultStrategyRandom.h"
 #include "FaultStrategyWeibull.h"
 
+#include <absl/log/check.h>
+#include <absl/log/log.h>
+#include <nlohmann/json.hpp>
+
 #include <iostream>
 #include <memory>
-#include <nlohmann/json.hpp>
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WeibullConfig::Stream, let, flux_phi, max_time)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WeibullConfig,
@@ -54,32 +57,23 @@ std::shared_ptr<FaultStrategy> FaultStrategyFactory::buildFromJson(
     std::string_view model_name = model_config.at("name").get<std::string_view>();
     if (model_name == "random") {
         // TODO Here maybe warn that random model received params, when it doesn't expect to
+        LOG(INFO) << "Parsed random model from json";
         return std::make_shared<RandomStrategy>(config);
     } else if (model_name == "weibull") {
-        try {
-            const auto weibull_config = model_config.at("params").get<WeibullConfig>();
-            return std::make_shared<WeibullStrategy>(config, weibull_config);
-        } catch (const nlohmann::json::exception& e) {
-            std::cerr << "Config validation failed: \n";
-            std::cerr << e.what() << '\n';
-            std::exit(1);
-        }
+        const auto weibull_config = model_config.at("params").get<WeibullConfig>();
+        LOG(INFO) << "Parsed weibull model from json";
+        return std::make_shared<WeibullStrategy>(config, weibull_config);
     } else if (model_name == "bendel") {
-        try {
-            const auto bendel_config = model_config.at("params").get<BendelConfig>();
-            return std::make_shared<BendelStrategy>(config, bendel_config);
-        } catch (const nlohmann::json::exception& e) {
-            std::cerr << "Config validation failed: \n";
-            std::cerr << e.what() << '\n';
-            std::exit(1);
-        }
+        const auto bendel_config = model_config.at("params").get<BendelConfig>();
+        LOG(INFO) << "Parsed bendel model from json";
+        return std::make_shared<BendelStrategy>(config, bendel_config);
     } else {
-        std::cerr << "Unknown model: " << model_name << "\n";
-        std::exit(1);
+        LOG(FATAL) << "Unknown model: " << model_name << "\n";
     }
 }
 
 std::shared_ptr<FaultStrategy> FaultStrategyFactory::defaultStrategy(
     const FaultStrategy::Config& config) {
+    LOG(INFO) << "Selecting default (random) model";
     return std::make_shared<RandomStrategy>(RandomStrategy{config});
 }

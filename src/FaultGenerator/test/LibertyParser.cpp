@@ -18,25 +18,20 @@
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
 #include <absl/flags/usage.h>
+#include <absl/log/check.h>
 
 ABSL_FLAG(std::string, input_path, "", "[REQUIRED] input file");
 
 int main(int argc, char** argv) {
     absl::ParseCommandLine(argc, argv);
 
-    if (absl::GetFlag(FLAGS_input_path).empty()) {
-        std::cerr << "Missing \"--input_path\" flag\n";
-        std::exit(1);
-    }
+    CHECK(!absl::GetFlag(FLAGS_input_path).empty()) << "Missing \"--input_path\" flag";
 
     auto parse_result = LibertyParser::parse(absl::GetFlag(FLAGS_input_path));
-    if (!parse_result) {
-        std::cerr << "Failed to parse\n";
-        return 1;
-    }
+    PCHECK(parse_result) << "Failed to parse\n";
 
-    printf("library\n");
+    std::cout << "library\n";
     for (const auto& [cell_name, cell_info] : parse_result->cells) {
-        printf("    cell(\"%s\") { area : %lf; }\n", cell_name.c_str(), cell_info.area);
+        std::cout << "cell(\"%s\") " << cell_info << "\n";
     }
 }

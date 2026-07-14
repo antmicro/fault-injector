@@ -78,11 +78,12 @@ class FaultInjector {
     static PLI_INT32 AtNextSimTimeCallback(t_cb_data* data) {
         auto* self = reinterpret_cast<FaultInjector*>(data->user_data);
         auto t = getVpiTime();
-        fin_printf(const_cast<char*>("- [@%d] %s iterating\n"), t.low,
-                   cbReasonToString(data->reason));
+        fin_printf(
+            const_cast<char*>("- [@%d] %s iterating\n"), t.low, cbReasonToString(data->reason));
 
         const PLI_UINT32 next_event_time = self->simulateSingleEventEffects();
         if (next_event_time == 0) {
+            fin_printf(const_cast<char*>("- [@%d] Last fault emitted\n"), t.low);
             return 0;
         }
         const PLI_UINT32 next_time = next_event_time - t.low;
@@ -96,7 +97,9 @@ class FaultInjector {
         cb_data.user_data = reinterpret_cast<PLI_BYTE8*>(self);
 
         fin_printf(const_cast<char*>("- [@%d] Registering next %s Callback, next event at @%d\n"),
-                   t.low, cbReasonToString(cb_data.reason), next_event_time);
+                   t.low,
+                   cbReasonToString(cb_data.reason),
+                   next_event_time);
 
         ManagedVpiHandle handle = vpi_register_cb(&cb_data);
         assert(handle.handle());
@@ -141,11 +144,17 @@ class FaultInjector {
             .type = Event::Type::SingleEventTransientRollback,
             .vpi_value = vpi_value,
         };
-        fin_printf(const_cast<char*>("- [@%d] SET: before flipping %d bit of %s: %d\n"), time.low,
-                   event.bit_idx, event.sig_path.c_str(), vpi_value.value.integer);
+        fin_printf(const_cast<char*>("- [@%d] SET: before flipping %d bit of %s: %d\n"),
+                   time.low,
+                   event.bit_idx,
+                   event.sig_path.c_str(),
+                   vpi_value.value.integer);
         vpi_value.value.integer ^= 1 << event.bit_idx;
-        fin_printf(const_cast<char*>("- [@%d] SET: after flipping %d bit of %s: %d\n"), time.low,
-                   event.bit_idx, event.sig_path.c_str(), vpi_value.value.integer);
+        fin_printf(const_cast<char*>("- [@%d] SET: after flipping %d bit of %s: %d\n"),
+                   time.low,
+                   event.bit_idx,
+                   event.sig_path.c_str(),
+                   vpi_value.value.integer);
         vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiNoDelay);
 
         // Insert after all ops on event as insert invalidates it.
@@ -161,11 +170,17 @@ class FaultInjector {
         vpi_value.format = vpiIntVal;
         vpi_get_value(event.vpi_handle, &vpi_value);
 
-        fin_printf(const_cast<char*>("- [@%d] SET: before rollback %d bit of %s: %d\n"), time.low,
-                   event.bit_idx, event.sig_path.c_str(), vpi_value.value.integer);
+        fin_printf(const_cast<char*>("- [@%d] SET: before rollback %d bit of %s: %d\n"),
+                   time.low,
+                   event.bit_idx,
+                   event.sig_path.c_str(),
+                   vpi_value.value.integer);
         vpi_value = event.vpi_value.value();
-        fin_printf(const_cast<char*>("- [@%d] SET: after rollback %d bit of %s: %d\n"), time.low,
-                   event.bit_idx, event.sig_path.c_str(), vpi_value.value.integer);
+        fin_printf(const_cast<char*>("- [@%d] SET: after rollback %d bit of %s: %d\n"),
+                   time.low,
+                   event.bit_idx,
+                   event.sig_path.c_str(),
+                   vpi_value.value.integer);
         vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiNoDelay);
     }
 
@@ -176,11 +191,17 @@ class FaultInjector {
         vpi_value.format = vpiIntVal;
         vpi_get_value(event.vpi_handle, &vpi_value);
 
-        fin_printf(const_cast<char*>("- [@%d] SEU: before flipping %d bit of %s: %d\n"), time.low,
-                   event.bit_idx, event.sig_path.c_str(), vpi_value.value.integer);
+        fin_printf(const_cast<char*>("- [@%d] SEU: before flipping %d bit of %s: %d\n"),
+                   time.low,
+                   event.bit_idx,
+                   event.sig_path.c_str(),
+                   vpi_value.value.integer);
         vpi_value.value.integer ^= 1 << event.bit_idx;
-        fin_printf(const_cast<char*>("- [@%d] SEU: after flipping %d bit of %s: %d\n"), time.low,
-                   event.bit_idx, event.sig_path.c_str(), vpi_value.value.integer);
+        fin_printf(const_cast<char*>("- [@%d] SEU: after flipping %d bit of %s: %d\n"),
+                   time.low,
+                   event.bit_idx,
+                   event.sig_path.c_str(),
+                   vpi_value.value.integer);
         vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiNoDelay);
     }
 
@@ -223,8 +244,8 @@ class FaultInjector {
         std::ifstream scenario(filename);
         if (!scenario) {
             std::error_code ec(errno, std::generic_category());
-            fin_printf("%%Error: Failed to open file '%s': %s\n", filename.c_str(),
-                       ec.message().c_str());
+            fin_printf(
+                "%%Error: Failed to open file '%s': %s\n", filename.c_str(), ec.message().c_str());
         }
         std::string line;
         while (std::getline(scenario, line)) {
@@ -248,6 +269,10 @@ class FaultInjector {
             }
             event->vpi_handle = it->second.handle();
             events.push_back(std::move(*event));
+        }
+
+        if (events.empty()) {
+            fin_printf("%%Error: No events read\n");
         }
 
         std::stable_sort(events.begin(), events.end());
