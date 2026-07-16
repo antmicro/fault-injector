@@ -2,7 +2,7 @@
 
 add_executable(TestFaultStrategyWeibull TestFaultStrategyWeibull.cpp)
 target_link_libraries(TestFaultStrategyWeibull PRIVATE FaultGenerationToolLib)
-add_test(NAME TestFaultStrategyWeibull COMMAND TestFaultStrategyWeibull)
+add_test(NAME unit.generation.faultStrategy.weibull COMMAND TestFaultStrategyWeibull)
 
 add_executable(TestConfigReading TestConfigReading.cpp)
 target_link_libraries(TestConfigReading
@@ -14,11 +14,11 @@ target_link_libraries(TestConfigReading
     absl::strings
     GTest::gtest_main
 )
-add_test(NAME TestConfigReading  COMMAND TestConfigReading)
+add_test(NAME unit.generation.gtest.configReading  COMMAND TestConfigReading)
 
 add_executable(TestFaultStrategyBendel TestFaultStrategyBendel.cpp)
 target_link_libraries(TestFaultStrategyBendel PRIVATE FaultGenerationToolLib GTest::gtest_main)
-add_test(NAME TestFaultStrategyBendel COMMAND TestFaultStrategyBendel)
+add_test(NAME unit.generation.faultStrategy.bendel COMMAND TestFaultStrategyBendel)
 
 
 add_executable(TestLibertyParsing TestLibertyParsing.cpp)
@@ -26,7 +26,7 @@ target_link_libraries(TestLibertyParsing PRIVATE FaultGenerationToolLib GTest::g
 target_compile_definitions(TestLibertyParsing PRIVATE
   TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
-add_test(NAME TestLibertyParsing COMMAND TestLibertyParsing)
+add_test(NAME unit.generation.gtest.libertParsing COMMAND TestLibertyParsing)
 
 # Binary for testing LibertyParser
 add_executable(LibertyParserBin LibertyParser.cpp)
@@ -37,7 +37,7 @@ target_link_libraries(LibertyParserBin
     absl::strings
     FaultGenerationToolLib
 )
-add_test(NAME TestLibertyParserOnExample
+add_test(NAME unit.generation.libertyParserOnExample
   COMMAND
     LibertyParserBin --input_path "${CMAKE_CURRENT_SOURCE_DIR}/example.lib"
 )

@@ -106,9 +106,10 @@ run-self-tests:
     - prepare-yosys
   script:
     - export PATH=$(pwd)/third_party/yosys:$PATH
-    - bash build.sh
-    - ctest --test-dir build -j --output-on-failure --timeout 60
-    - bash src/FaultInjector/test/test.sh
+    - cmake -B build -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug
+    - cmake --build build -j
+    - ctest --test-dir build --output-on-failure --tests-regex unit
+    - ctest --test-dir build --output-on-failure --tests-regex integration
   artifacts:
     paths:
       - obj_dir
@@ -126,13 +127,12 @@ run-worker-end-to-end-tests:
     - prepare-yosys
   script:
     - export PATH=$(pwd)/third_party/yosys:$PATH
-    - bash build.sh
-    - bash test.sh
-    - bash test-multiple.sh
-    - bash test-synth-regression.sh
+    - cmake -B build -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug
+    - cmake --build build -j
+    - ctest --test-dir build --output-on-failure --tests-regex e2e
   artifacts:
     paths:
-      - obj_dir
+      - build
     expire_in: 8 hours
 
 run-parser-tests:

@@ -10,6 +10,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 include(CTest)
 
+if(BUILD_TESTING)
+  include(cmake/common.cmake)
+  fi_require_e2e_tools()
+endif()
+
 FetchContent_Declare(
   json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -38,3 +43,7 @@ endif()
 
 add_subdirectory(src/FaultGenerator)
 add_subdirectory(src/FaultInjector)
+
+if(BUILD_TESTING)
+  add_subdirectory(test)
+endif()

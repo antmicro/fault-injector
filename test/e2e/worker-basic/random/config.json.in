@@ -1,0 +1,16 @@
+{
+  "model": {
+    "name": "random",
+    "params" : {}
+  },
+  "params": {
+    "seed": 42,
+    "num_of_events": 10,
+    "simulation_time": 10,
+    "sig_path_prefix": "top",
+    "top_module": "dff_worker",
+    "top_instance": "worker",
+    "netlist_path": "@NETLIST_PATH@",
+    "fault_campaign_out": "@FAULT_CAMPAIGN_OUT@"
+  }
+}

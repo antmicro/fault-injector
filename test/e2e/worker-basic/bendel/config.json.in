@@ -31,7 +31,7 @@
     "sig_path_prefix": "top",
     "top_module": "dff_worker",
     "top_instance": "worker",
-    "netlist_path": "obj_dir/worker.json",
-    "fault_campaign_out": "obj_dir/bendel_campaign.csv"
+    "netlist_path": "@NETLIST_PATH@",
+    "fault_campaign_out": "@FAULT_CAMPAIGN_OUT@"
   }
 }
