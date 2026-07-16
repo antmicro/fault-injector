@@ -183,7 +183,8 @@ struct Parser {
 
     bool expect(TokenKind k) {
         static const char* names[] = {
-            "end of file", "value", "'('", "')'", "'{'", "'}'", "':'", "';'", "','"};
+            "end of file", "value", "'('", "')'", "'{'", "'}'", "':'", "';'", "','"
+        };
         bool ok = cur.is(k);
         if (!ok) {
             LOG(WARNING) << "expected " << names[(int)k] << ", got '" << cur.str << "'";

@@ -24,7 +24,9 @@
 
 class FaultStrategyFactory {
    public:
-    static std::shared_ptr<FaultStrategy> buildFromJson(const FaultStrategy::Config&,
-                                                        const nlohmann::json& model_config);
+    static std::shared_ptr<FaultStrategy> buildFromJson(
+        const FaultStrategy::Config&,
+        const nlohmann::json& model_config
+    );
     static std::shared_ptr<FaultStrategy> defaultStrategy(const FaultStrategy::Config&);
 };

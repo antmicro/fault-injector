@@ -41,20 +41,24 @@ struct TaskInput {
     std::string output_file;
 };
 
-std::vector<TaskInput> generate_tasks(const std::shared_ptr<FaultStrategy> strategy,
-                                      const std::vector<Signal>& signals,
-                                      const std::string& root_path,
-                                      std::uint64_t seed,
-                                      std::uint64_t count) {
+std::vector<TaskInput> generate_tasks(
+    const std::shared_ptr<FaultStrategy> strategy,
+    const std::vector<Signal>& signals,
+    const std::string& root_path,
+    std::uint64_t seed,
+    std::uint64_t count
+) {
     std::mt19937_64 seed_generator{seed};
     std::uniform_int_distribution<std::uint32_t> dist;
     std::vector<TaskInput> result;
     result.reserve(count);
 
     for (int i = 0; i < count; i++) {
-        FaultStrategy::Config new_config = {.num_of_events = strategy->config.num_of_events,
-                                            .seed = dist(seed_generator),
-                                            .simulation_time = strategy->config.simulation_time};
+        FaultStrategy::Config new_config = {
+            .num_of_events = strategy->config.num_of_events,
+            .seed = dist(seed_generator),
+            .simulation_time = strategy->config.simulation_time
+        };
         std::stringstream ss;
         ss << root_path << "/fault_campaign_" << new_config.seed << ".csv";
         result.emplace_back(strategy->copy_with(new_config), signals, ss.str());
@@ -79,11 +83,13 @@ void generate_single_campaign(const TaskInput& input) {
 
 void generate_many_campaigns(const GlobalOpts& opts, std::vector<Signal>&& signals) {
     LOG(INFO) << "call generate_many_campaigns" << std::endl;
-    std::vector<TaskInput> tasks = generate_tasks(opts.strategy,
-                                                  signals,
-                                                  opts.fault_campaign_out,
-                                                  opts.strategy->config.seed,
-                                                  opts.campaign_number);
+    std::vector<TaskInput> tasks = generate_tasks(
+        opts.strategy,
+        signals,
+        opts.fault_campaign_out,
+        opts.strategy->config.seed,
+        opts.campaign_number
+    );
     auto num_workers =
         std::max(1u, std::min(opts.thread_number, std::thread::hardware_concurrency()));
 
@@ -135,9 +141,9 @@ int main(int argc, char* argv[]) {
             .collectFromFile(opts.netlist_path);
 
     if (opts.campaign_number == 1) {
-        generate_single_campaign({.strategy = opts.strategy,
-                                  .signals = signals,
-                                  .output_file = opts.fault_campaign_out});
+        generate_single_campaign(
+            {.strategy = opts.strategy, .signals = signals, .output_file = opts.fault_campaign_out}
+        );
 
     } else {
         create_directory(opts.fault_campaign_out);

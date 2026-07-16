@@ -893,9 +893,11 @@ XXTERN void vpi_get_value PROTO_PARAMS((vpiHandle expr, p_vpi_value value_p));
 XXTERN vpiHandle vpi_put_value
     PROTO_PARAMS((vpiHandle object, p_vpi_value value_p, p_vpi_time time_p, PLI_INT32 flags));
 XXTERN void vpi_get_value_array PROTO_PARAMS(
-    (vpiHandle object, p_vpi_arrayvalue arrayvalue_p, PLI_INT32* index_p, PLI_UINT32 num));
+    (vpiHandle object, p_vpi_arrayvalue arrayvalue_p, PLI_INT32* index_p, PLI_UINT32 num)
+);
 XXTERN void vpi_put_value_array PROTO_PARAMS(
-    (vpiHandle object, p_vpi_arrayvalue arrayvalue_p, PLI_INT32* index_p, PLI_UINT32 num));
+    (vpiHandle object, p_vpi_arrayvalue arrayvalue_p, PLI_INT32* index_p, PLI_UINT32 num)
+);
 
 /* time processing */
 
@@ -920,12 +922,10 @@ XXTERN PLI_INT32 vpi_get_vlog_info PROTO_PARAMS((p_vpi_vlog_info vlog_info_p));
 
 /* routines added with 1364-2001 */
 
-XXTERN PLI_INT32 vpi_get_data PROTO_PARAMS((PLI_INT32 id,
-                                            PLI_BYTE8* dataLoc,
-                                            PLI_INT32 numOfBytes));
-XXTERN PLI_INT32 vpi_put_data PROTO_PARAMS((PLI_INT32 id,
-                                            PLI_BYTE8* dataLoc,
-                                            PLI_INT32 numOfBytes));
+XXTERN PLI_INT32 vpi_get_data PROTO_PARAMS((PLI_INT32 id, PLI_BYTE8* dataLoc, PLI_INT32 numOfBytes)
+);
+XXTERN PLI_INT32 vpi_put_data PROTO_PARAMS((PLI_INT32 id, PLI_BYTE8* dataLoc, PLI_INT32 numOfBytes)
+);
 XXTERN void* vpi_get_userdata PROTO_PARAMS((vpiHandle obj));
 XXTERN PLI_INT32 vpi_put_userdata PROTO_PARAMS((vpiHandle obj, void* userdata));
 XXTERN PLI_INT32 vpi_vprintf PROTO_PARAMS((PLI_BYTE8 * format, va_list ap));
@@ -933,9 +933,8 @@ XXTERN PLI_INT32 vpi_mcd_vprintf PROTO_PARAMS((PLI_UINT32 mcd, PLI_BYTE8* format
 XXTERN PLI_INT32 vpi_flush PROTO_PARAMS((void));
 XXTERN PLI_INT32 vpi_mcd_flush PROTO_PARAMS((PLI_UINT32 mcd));
 XXTERN PLI_INT32 vpi_control PROTO_PARAMS((PLI_INT32 operation, ...));
-XXTERN vpiHandle vpi_handle_by_multi_index PROTO_PARAMS((vpiHandle obj,
-                                                         PLI_INT32 num_index,
-                                                         PLI_INT32* index_array));
+XXTERN vpiHandle vpi_handle_by_multi_index
+    PROTO_PARAMS((vpiHandle obj, PLI_INT32 num_index, PLI_INT32* index_array));
 
 /****************************** GLOBAL VARIABLES ******************************/
 

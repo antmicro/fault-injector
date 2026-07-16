@@ -47,4 +47,3 @@ struct Signal {
                   << ", .num_of_bits=" << signal.num_of_bits << ", .type=" << signal.type << " }";
     }
 };
-

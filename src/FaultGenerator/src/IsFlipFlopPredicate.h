@@ -29,7 +29,6 @@ struct Cell {
     }
 };
 
-
 class IsFlipFlop {
    public:
     static bool check(const Cell& json);

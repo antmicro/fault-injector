@@ -34,9 +34,10 @@ static std::vector<Signal> createSignals(size_t count) {
 
 int main() {
     // From seu2.py
-    constexpr std::uint64_t expected_counts[] = {
-        2431964, 245205, 103683, 101457, 20256, 99086, 102352, 104023, 97811,  2741,
-        91813,   98614,  52001,  90941,  9825,  9659,  25,     26,     160635, 10396};
+    constexpr std::uint64_t expected_counts[] = {2431964, 245205, 103683, 101457, 20256,
+                                                 99086,   102352, 104023, 97811,  2741,
+                                                 91813,   98614,  52001,  90941,  9825,
+                                                 9659,    25,     26,     160635, 10396};
     constexpr size_t num_streams = sizeof(expected_counts) / sizeof(expected_counts[0]);
     constexpr std::uint64_t expected_total = 3832513;
 
@@ -45,27 +46,28 @@ int main() {
     FaultStrategy::Config config{0, 42, 0};
 
     WeibullConfig weibullConfig{
-        .streams = {
-            WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 9.15e3 * 1e4, .max_time = 1094},
-            WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 996},
-            WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.04e3 * 1e4, .max_time = 409},
-            WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.05e3 * 1e4, .max_time = 399},
-            WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 5.04e2 * 1e4, .max_time = 166},
-            WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 536},
-            WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 551},
-            WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.58e3 * 1e4, .max_time = 417},
-            WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.51e3 * 1e4, .max_time = 411},
-            WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.45e3 * 1e4, .max_time = 12},
-            WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.00e3 * 1e4, .max_time = 433},
-            WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.05e3 * 1e4, .max_time = 452},
-            WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.32e3 * 1e4, .max_time = 433},
-            WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.77e3 * 1e4, .max_time = 636},
-            WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.03e3 * 1e4, .max_time = 201},
-            WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.11e3 * 1e4, .max_time = 197},
-            WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 7.60e3 * 1e4, .max_time = 133},
-            WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 8.17e3 * 1e4, .max_time = 124},
-            WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 9.99e3 * 1e4, .max_time = 102},
-            WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 5.17e1 * 1e4, .max_time = 1275}}};
+        .streams =
+            {WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 9.15e3 * 1e4, .max_time = 1094},
+             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 996},
+             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.04e3 * 1e4, .max_time = 409},
+             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.05e3 * 1e4, .max_time = 399},
+             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 5.04e2 * 1e4, .max_time = 166},
+             WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 536},
+             WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 551},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.58e3 * 1e4, .max_time = 417},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.51e3 * 1e4, .max_time = 411},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.45e3 * 1e4, .max_time = 12},
+             WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.00e3 * 1e4, .max_time = 433},
+             WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.05e3 * 1e4, .max_time = 452},
+             WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.32e3 * 1e4, .max_time = 433},
+             WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.77e3 * 1e4, .max_time = 636},
+             WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.03e3 * 1e4, .max_time = 201},
+             WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.11e3 * 1e4, .max_time = 197},
+             WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 7.60e3 * 1e4, .max_time = 133},
+             WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 8.17e3 * 1e4, .max_time = 124},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 9.99e3 * 1e4, .max_time = 102},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 5.17e1 * 1e4, .max_time = 1275}}
+    };
 
     WeibullStrategy strategy{config, weibullConfig};
 
@@ -94,11 +96,13 @@ int main() {
             std::abs(static_cast<double>(count) - static_cast<double>(expected)) / expected;
 
         if (diff > tolerance) {
-            std::printf("FAIL stream #%zu: got %llu, expected %llu (%.2f%% diff)\n",
-                        i,
-                        static_cast<unsigned long long>(count),
-                        static_cast<unsigned long long>(expected),
-                        diff * 100.0);
+            std::printf(
+                "FAIL stream #%zu: got %llu, expected %llu (%.2f%% diff)\n",
+                i,
+                static_cast<unsigned long long>(count),
+                static_cast<unsigned long long>(expected),
+                diff * 100.0
+            );
             failed = 1;
         }
     }
@@ -111,15 +115,17 @@ int main() {
         std::abs(static_cast<double>(all_events.size()) - static_cast<double>(expected_total)) /
         expected_total;
     if (total_diff > 0.05) {
-        std::printf("FAIL: total events %zu, expected %llu (%.2f%% diff)\n",
-                    all_events.size(),
-                    static_cast<unsigned long long>(expected_total),
-                    total_diff * 100.0);
+        std::printf(
+            "FAIL: total events %zu, expected %llu (%.2f%% diff)\n",
+            all_events.size(),
+            static_cast<unsigned long long>(expected_total),
+            total_diff * 100.0
+        );
         return 1;
     }
 
-    std::printf("PASS: all %zu streams within tolerance, total %zu events\n",
-                num_streams,
-                all_events.size());
+    std::printf(
+        "PASS: all %zu streams within tolerance, total %zu events\n", num_streams, all_events.size()
+    );
     return 0;
 }

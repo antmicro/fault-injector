@@ -8,3 +8,7 @@ InsertBraces: true
 SortIncludes: true
 IncludeBlocks: Preserve
 BinPackArguments: false
+BinPackParameters: false
+BreakAfterReturnType: None
+PenaltyReturnTypeOnItsOwnLine: 1000
+MaxEmptyLinesToKeep: 1

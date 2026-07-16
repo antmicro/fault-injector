@@ -50,20 +50,29 @@ TEST(BendelGenerationTest, CountsWithinTolerance) {
 
     FaultStrategy::Config config{0, 42, 0};
 
-    BendelConfig weibull_config{.streams = {
-                                    BendelConfig::Stream{.name = "run55",
-                                                         .energy = 20.0 * 1e6,
-                                                         .flux_phi = 1.12e8 * 1e4,
-                                                         .fluence = 1e10 * 1e4},
-                                    BendelConfig::Stream{.name = "run52",
-                                                         .energy = 40.0 * 1e6,
-                                                         .flux_phi = 1.19e8 * 1e4,
-                                                         .fluence = 1e10 * 1e4},
-                                    BendelConfig::Stream{.name = "run47",
-                                                         .energy = 60.0 * 1e6,
-                                                         .flux_phi = 9.17e7 * 1e4,
-                                                         .fluence = 1e10 * 1e4},
-                                }};
+    BendelConfig weibull_config{
+        .streams =
+            {
+                BendelConfig::Stream{
+                    .name = "run55",
+                    .energy = 20.0 * 1e6,
+                    .flux_phi = 1.12e8 * 1e4,
+                    .fluence = 1e10 * 1e4
+                },
+                BendelConfig::Stream{
+                    .name = "run52",
+                    .energy = 40.0 * 1e6,
+                    .flux_phi = 1.19e8 * 1e4,
+                    .fluence = 1e10 * 1e4
+                },
+                BendelConfig::Stream{
+                    .name = "run47",
+                    .energy = 60.0 * 1e6,
+                    .flux_phi = 9.17e7 * 1e4,
+                    .fluence = 1e10 * 1e4
+                },
+            }
+    };
 
     BendelStrategy strategy{config, weibull_config};
 

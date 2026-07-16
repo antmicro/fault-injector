@@ -29,31 +29,38 @@
 #include <memory>
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WeibullConfig::Stream, let, flux_phi, max_time)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WeibullConfig,
-                                                streams,
-                                                bit_count,
-                                                cell_area,
-                                                let_threshold,
-                                                width,
-                                                shape_parameter,
-                                                limiting_cross_section)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    WeibullConfig,
+    streams,
+    bit_count,
+    cell_area,
+    let_threshold,
+    width,
+    shape_parameter,
+    limiting_cross_section
+)
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(BendelConfig::Stream,
-                                                name,
-                                                A,
-                                                B,
-                                                energy,
-                                                flux_phi,
-                                                fluence)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(BendelConfig,
-                                                bit_count,
-                                                device_area,
-                                                num_cells,
-                                                streams)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    BendelConfig::Stream,
+    name,
+    A,
+    B,
+    energy,
+    flux_phi,
+    fluence
+)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    BendelConfig,
+    bit_count,
+    device_area,
+    num_cells,
+    streams
+)
 
 std::shared_ptr<FaultStrategy> FaultStrategyFactory::buildFromJson(
     const FaultStrategy::Config& config,
-    const nlohmann::json& model_config) {
+    const nlohmann::json& model_config
+) {
     std::string_view model_name = model_config.at("name").get<std::string_view>();
     if (model_name == "random") {
         // TODO Here maybe warn that random model received params, when it doesn't expect to
@@ -73,7 +80,8 @@ std::shared_ptr<FaultStrategy> FaultStrategyFactory::buildFromJson(
 }
 
 std::shared_ptr<FaultStrategy> FaultStrategyFactory::defaultStrategy(
-    const FaultStrategy::Config& config) {
+    const FaultStrategy::Config& config
+) {
     LOG(INFO) << "Selecting default (random) model";
     return std::make_shared<RandomStrategy>(RandomStrategy{config});
 }

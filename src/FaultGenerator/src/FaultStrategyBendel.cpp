@@ -50,8 +50,10 @@ std::vector<FaultEvent> BendelStrategy::generate(std::span<const Signal> signals
     return result;
 }
 
-std::vector<FaultEvent> BendelStrategy::generate(const BendelConfig::Stream& stream,
-                                                 std::span<const Signal> signals) {
+std::vector<FaultEvent> BendelStrategy::generate(
+    const BendelConfig::Stream& stream,
+    std::span<const Signal> signals
+) {
     std::vector<FaultEvent> result;
     const Cell cell{.area = bendel_config.device_area / bendel_config.num_cells};
 
@@ -71,10 +73,12 @@ std::vector<FaultEvent> BendelStrategy::generate(const BendelConfig::Stream& str
         }
 
         const auto& signal = signals[cell_id];
-        result.emplace_back(static_cast<std::uint64_t>(curr_time),
-                            signal.signal_path,
-                            bit_dist(gen.random_generator) % signal.num_of_bits,
-                            FaultEventType::SINGLE_EVENT_UPSET);
+        result.emplace_back(
+            static_cast<std::uint64_t>(curr_time),
+            signal.signal_path,
+            bit_dist(gen.random_generator) % signal.num_of_bits,
+            FaultEventType::SINGLE_EVENT_UPSET
+        );
 
         // Schedule next one
         event_time[cell_id] += eventTime(cell, stream);

@@ -29,9 +29,11 @@ struct Cell {
     const double area;
 };
 
-double WeibullStrategy::eventTime(const Cell& cell,
-                                  const WeibullConfig::Stream& stream,
-                                  double g0) {
+double WeibullStrategy::eventTime(
+    const Cell& cell,
+    const WeibullConfig::Stream& stream,
+    double g0
+) {
     const double cos = std::cos(seu::deg2rad(seu::FLUX_THETA));
     const double L0 = weibull_config.let_threshold;
     const double W = weibull_config.width;
@@ -64,8 +66,10 @@ std::vector<FaultEvent> WeibullStrategy::generate(std::span<const Signal> signal
     return result;
 }
 
-std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& stream_data,
-                                                  std::span<const Signal> signals) {
+std::vector<FaultEvent> WeibullStrategy::generate(
+    const WeibullConfig::Stream& stream_data,
+    std::span<const Signal> signals
+) {
     std::vector<FaultEvent> result;
     Cell cell{.area = weibull_config.cell_area};
     const double g0 = weibull_config.limiting_cross_section *
@@ -73,7 +77,8 @@ std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& s
 
     std::vector<WeibullConfig::Stream> streams = {stream_data};
     std::vector<std::vector<double>> event_time(
-        signals.size(), std::vector<double>{eventTime(cell, streams.front(), g0)});
+        signals.size(), std::vector<double>{eventTime(cell, streams.front(), g0)}
+    );
     std::vector<std::vector<History>> history(signals.size());
     double curr_time = 0.0;
     std::uint64_t total_hits = 0;
@@ -107,10 +112,12 @@ std::vector<FaultEvent> WeibullStrategy::generate(const WeibullConfig::Stream& s
         // Store event history
         history[cell_id].emplace_back(History{curr_time, stream_id});
         const auto& signal = signals[cell_id];
-        result.emplace_back(FaultEvent{static_cast<std::uint64_t>(curr_time),
-                                       signal.signal_path,
-                                       bit_dist(gen.random_generator) % signal.num_of_bits,
-                                       FaultEventType::SINGLE_EVENT_UPSET});
+        result.emplace_back(FaultEvent{
+            static_cast<std::uint64_t>(curr_time),
+            signal.signal_path,
+            bit_dist(gen.random_generator) % signal.num_of_bits,
+            FaultEventType::SINGLE_EVENT_UPSET
+        });
         ++total_hits;
 
         // Schedule next one
