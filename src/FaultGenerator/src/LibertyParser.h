@@ -62,8 +62,8 @@ class LibertyParser final {
 };
 
 class Liberty {
-    std::vector<LibertyInfo> infos;
-    std::unordered_set<std::string_view> ff_types;
+    std::vector<LibertyInfo> infos{};
+    std::unordered_set<std::string_view> ff_types{};
 
    public:
     Liberty() = default;

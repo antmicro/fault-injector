@@ -17,7 +17,7 @@
 #include "FaultStrategyWeibull.h"
 
 #include "FaultEvent.h"
-#include "FaultStrategy.h"
+#include "Signal.h"
 #include "Utils.h"
 
 #include <algorithm>

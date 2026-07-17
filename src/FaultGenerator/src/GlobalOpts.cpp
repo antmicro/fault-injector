@@ -17,12 +17,10 @@
 #include "GlobalOpts.h"
 
 #include "FaultStrategyFactory.h"
+#include "LogUtils.h"
 
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
-#include <absl/log/check.h>
-#include <absl/log/initialize.h>
-#include <absl/log/log.h>
 #include <nlohmann/json.hpp>
 
 #include <fstream>
@@ -153,7 +151,7 @@ void from_json(const nlohmann::json& json, GlobalOpts& opts) {
 
 GlobalOpts GlobalOpts::parseCmdArgs(int argc, char** argv) {
     absl::ParseCommandLine(argc, argv);
-    absl::InitializeLog();
+    LogInitialize();
 
     std::string config_filepath = absl::GetFlag(FLAGS_config_file);
     if (config_filepath.empty()) {
@@ -194,13 +192,13 @@ GlobalOpts GlobalOpts::parseCmdArgs(int argc, char** argv) {
     } else {
         try {
             std::ifstream config_file{config_filepath};
-            PCHECK(config_file) << "%%Error: Failed to open '" << config_filepath << "'";
+            SEE_PCHECK(config_file) << "Failed to open '" << config_filepath << "'";
             const auto config_json = nlohmann::json::parse(config_file);
 
             return config_json.get<GlobalOpts>();
         } catch (std::exception& error) {
-            LOG(FATAL) << "%%Error: Ill formed config file '" << config_filepath << "'"
-                       << error.what() << "\n";
+            LOG(INFO) << "Json config parsing error: " << error.what() << "\n";
+            SEE_CHECK(false) << "Ill formed config file '" << config_filepath << "'";
         }
     }
 }

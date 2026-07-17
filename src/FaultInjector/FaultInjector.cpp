@@ -14,12 +14,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <algorithm>
-#include <fstream>
-#include <map>
-
-#include "vpi_user.h"
-
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -28,6 +22,12 @@
 #include <vector>
 #include "Event.h"
 #include "ManagedVpiHandle.h"
+
+#include "vpi_user.h"
+
+#include <algorithm>
+#include <fstream>
+#include <map>
 
 namespace fin {
 

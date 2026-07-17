@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "FaultEvent.h"
-#include "Signal.h"
-
 #include <memory>
 #include <random>
 #include <span>
 #include <vector>
+
+class Signal;
+class FaultEvent;
 
 class FaultStrategy {
    public:

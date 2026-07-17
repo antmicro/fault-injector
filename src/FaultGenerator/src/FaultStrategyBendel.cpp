@@ -15,10 +15,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "FaultStrategyBendel.h"
+
 #include <algorithm>
 #include <cassert>
 #include <utility>
+
 #include "Constants.h"
+#include "FaultEvent.h"
+#include "Signal.h"
 #include "Utils.h"
 
 BendelStrategy::BendelStrategy(const Config& config, const BendelConfig& bendelConfig)

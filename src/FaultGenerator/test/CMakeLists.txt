@@ -28,6 +28,19 @@ target_compile_definitions(TestLibertyParsing PRIVATE
 )
 add_test(NAME unit.generation.gtest.libertParsing COMMAND TestLibertyParsing)
 
+add_executable(TestSignalCollector TestSignalCollector.cpp)
+target_link_libraries(TestSignalCollector
+  PRIVATE
+    FaultGenerationToolLib
+    nlohmann_json::nlohmann_json
+    absl::log
+    absl::log_initialize
+    absl::check
+    GTest::gtest_main
+)
+add_test(NAME TestSignalCollector COMMAND TestSignalCollector)
+
+
 # Binary for testing LibertyParser
 add_executable(LibertyParserBin LibertyParser.cpp)
 target_link_libraries(LibertyParserBin

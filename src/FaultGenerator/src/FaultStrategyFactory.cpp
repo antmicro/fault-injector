@@ -20,12 +20,10 @@
 #include "FaultStrategyBendel.h"
 #include "FaultStrategyRandom.h"
 #include "FaultStrategyWeibull.h"
+#include "LogUtils.h"
 
-#include <absl/log/check.h>
-#include <absl/log/log.h>
 #include <nlohmann/json.hpp>
 
-#include <iostream>
 #include <memory>
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(WeibullConfig::Stream, let, flux_phi, max_time)
@@ -75,7 +73,7 @@ std::shared_ptr<FaultStrategy> FaultStrategyFactory::buildFromJson(
         LOG(INFO) << "Parsed bendel model from json";
         return std::make_shared<BendelStrategy>(config, bendel_config);
     } else {
-        LOG(FATAL) << "Unknown model: " << model_name << "\n";
+        SEE_CHECK(false) << "Unknown model: " << model_name << "\n";
     }
 }
 

@@ -17,13 +17,13 @@
 #pragma once
 
 #include "Constants.h"
-#include "FaultEvent.h"
 #include "FaultStrategy.h"
-#include "Signal.h"
 
 #include <random>
 #include <span>
 #include <vector>
+
+struct Signal;
 
 struct WeibullConfig {
     struct Stream {

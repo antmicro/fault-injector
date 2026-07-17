@@ -16,15 +16,14 @@
 
 #include "IsFlipFlopPredicate.h"
 
-#include "GlobalOpts.h"
-#include "LibertyParser.h"
-
 #include <algorithm>
 #include <unordered_set>
 #include <vector>
 
-#include <absl/log/check.h>
-#include <absl/log/log.h>
+#include "Cell.h"
+#include "GlobalOpts.h"
+#include "LibertyParser.h"
+#include "LogUtils.h"
 
 static const std::unordered_set<std::string_view> ff_name_suffixes = {
     // Source: https://yosyshq.readthedocs.io/projects/yosys/en/stable/cell/word_reg.html

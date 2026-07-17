@@ -16,11 +16,12 @@
 
 #pragma once
 
-#include <string_view>
-
 #include <nlohmann/json.hpp>
 
-#include "Signal.h"
+#include <string_view>
+
+class Cell;
+class Signal;
 
 class SignalCollector {
     std::string_view top_module;
@@ -36,6 +37,7 @@ class SignalCollector {
         : top_module(top_module), top_instance(top_instance), prefix_path(prefix_path) {}
 
     std::vector<Signal> collectFromFile(const std::string& netlist_filepath) const;
+    std::vector<Signal> collectFromJSON(const nlohmann::json& json) const;
 
    private:
     struct Module {
@@ -47,6 +49,7 @@ class SignalCollector {
         std::vector<Signal> signals;
     };
 
+    static void collectCell(Module&, const Cell&, const nlohmann::json&);
     static std::vector<Module> collectModules(const nlohmann::json& json);
     static std::string dumpAllModules(const std::vector<Module>& modules);
     int findTopModule(std::vector<Module>& modules) const;
@@ -56,5 +59,4 @@ class SignalCollector {
         const std::vector<Module>& modules,
         const Module& module
     ) const;
-    std::vector<Signal> collectFromJSON(const nlohmann::json& json) const;
 };

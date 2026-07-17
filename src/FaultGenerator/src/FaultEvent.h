@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <ostream>
 #include <string>
 
 enum class FaultEventType : std::uint8_t {
@@ -25,16 +26,16 @@ enum class FaultEventType : std::uint8_t {
     SINGLE_EVENT_UPSET,
 };
 
-inline const char* faultEventTypeToString(FaultEventType type) {
+inline std::ostream& operator<<(std::ostream& os, FaultEventType type) {
     switch (type) {
         case FaultEventType::SINGLE_EVENT_TRANSIENT:
-            return "set";
+            return os << "set";
         case FaultEventType::SINGLE_EVENT_UPSET:
-            return "seu";
+            return os << "seu";
         default:
             break;
     }
-    return "unknown";
+    return os << "unknown";
 }
 
 struct FaultEvent {

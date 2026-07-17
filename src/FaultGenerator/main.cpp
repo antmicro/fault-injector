@@ -18,20 +18,16 @@
 #include "FaultStrategy.h"
 #include "GlobalOpts.h"
 #include "IsFlipFlopPredicate.h"
+#include "LogUtils.h"
 #include "Signal.h"
 #include "SignalCollector.h"
 
-#include <absl/log/check.h>
-#include <absl/log/log.h>
-
-#include <execution>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <iostream>
 #include <iterator>
 #include <random>
-#include <syncstream>
 #include <thread>
 #include <vector>
 
@@ -77,7 +73,7 @@ void generate_single_campaign(const TaskInput& input) {
     }
     for (const FaultEvent& fault_event : fault_events) {
         of << fault_event.time << ',' << fault_event.signal_path << ',' << fault_event.bit_index
-           << ',' << faultEventTypeToString(fault_event.type) << '\n';
+           << ',' << fault_event.type << '\n';
     }
 }
 
@@ -124,9 +120,10 @@ void create_directory(std::string_view path) {
         if (create_directories(path)) {
             return;
         }
-        PLOG(FATAL) << "Cannot create directory '" << path << "'";
+        SEE_CHECK(false) << "Cannot create directory '" << path << "'";
     } catch (std::exception& e) {
-        PLOG(FATAL) << e.what();
+        LOG(INFO) << e.what();
+        SEE_CHECK(false) << "Cannot create directory '" << path << "'";
     }
 }
 
@@ -134,7 +131,7 @@ int main(int argc, char* argv[]) {
     const GlobalOpts opts = GlobalOpts::parseCmdArgs(argc, argv);
     IsFlipFlop::ctor(opts);
 
-    CHECK(opts.campaign_number >= 1) << "Cannot run less than one campaign";
+    SEE_CHECK(opts.campaign_number >= 1) << "Cannot run less than one campaign";
 
     std::vector<Signal> signals =
         SignalCollector(opts.top_module, opts.top_instance, opts.sig_path_prefix)

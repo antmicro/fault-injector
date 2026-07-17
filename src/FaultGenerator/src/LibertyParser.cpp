@@ -16,8 +16,7 @@
 
 #include "LibertyParser.h"
 
-#include <absl/log/check.h>
-#include <absl/log/log.h>
+#include "LogUtils.h"
 
 #include <cassert>
 #include <cstdint>

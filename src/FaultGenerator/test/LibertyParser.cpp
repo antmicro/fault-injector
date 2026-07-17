@@ -15,10 +15,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "LibertyParser.h"
+#include "LogUtils.h"
+
 #include <absl/flags/flag.h>
 #include <absl/flags/parse.h>
 #include <absl/flags/usage.h>
-#include <absl/log/check.h>
 
 ABSL_FLAG(std::string, input_path, "", "[REQUIRED] input file");
 
@@ -28,7 +29,7 @@ int main(int argc, char** argv) {
     CHECK(!absl::GetFlag(FLAGS_input_path).empty()) << "Missing \"--input_path\" flag";
 
     auto parse_result = LibertyParser::parse(absl::GetFlag(FLAGS_input_path));
-    PCHECK(parse_result) << "Failed to parse\n";
+    CHECK(parse_result) << "Failed to parse";
 
     std::cout << "library\n";
     for (const auto& [cell_name, cell_info] : parse_result->cells) {

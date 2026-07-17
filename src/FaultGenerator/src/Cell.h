@@ -16,11 +16,23 @@
 
 #pragma once
 
-class GlobalOpts;
-class Cell;
+#include <ostream>
 
-class IsFlipFlop {
-   public:
-    static bool check(const Cell& json);
-    static void ctor(const GlobalOpts& opts);
+#include <nlohmann/json.hpp>
+
+struct Cell {
+    std::string name;
+    std::string type;
+
+    Cell(const std::string& name, const nlohmann::json& cell_json)
+        : name(name), type(cell_json.value("type", "")) {}
+
+    /* Returns signal path, in current (yosys dependent) implementation,
+     * by taking prefix before first '$'.
+     */
+    inline std::string getPath() const { return name.substr(0, name.find('$')); }
+
+    friend std::ostream& operator<<(std::ostream& os, const Cell& cell) {
+        return os << "{ .name=" << cell.name << ", .type=" << cell.type << " }";
+    }
 };
