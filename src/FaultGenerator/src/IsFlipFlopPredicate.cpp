@@ -16,17 +16,17 @@
 
 #include "IsFlipFlopPredicate.h"
 
+#include "Cell.h"
+#include "Liberty.h"
+#include "LogUtils.h"
+
 #include <algorithm>
 #include <unordered_set>
 #include <vector>
 
-#include "Cell.h"
-#include "GlobalOpts.h"
-#include "LibertyParser.h"
-#include "LogUtils.h"
-
 static const std::unordered_set<std::string_view> ff_name_suffixes = {
-    // Source: https://yosyshq.readthedocs.io/projects/yosys/en/stable/cell/word_reg.html
+    // Source:
+    // https://yosyshq.readthedocs.io/projects/yosys/en/stable/cell/word_reg.html
     "$dff",
     "$adff",
     "$aldff",
@@ -44,7 +44,7 @@ class ByCommonNameSuffixes {
     static constexpr char separator = '$';
 
    public:
-    bool operator()(const Cell& cell) {
+    bool operator()(const Cell& cell, const Liberty& liberty) {
         std::string_view cell_ff_type =
             std::string_view(cell.name).substr(cell.name.find_last_of(separator));
         bool result = ff_name_suffixes.contains(cell_ff_type);
@@ -62,7 +62,7 @@ static const std::vector<std::string_view> ff_type_prefixes = {
 
 class ByCommonTypePrefix {
    public:
-    bool operator()(const Cell& cell) {
+    bool operator()(const Cell& cell, const Liberty& liberty) {
         bool result =
             std::find_if(ff_type_prefixes.begin(), ff_type_prefixes.end(), [&cell](auto prefix) {
                 return cell.type.starts_with(prefix);
@@ -73,12 +73,8 @@ class ByCommonTypePrefix {
 };
 
 class ByKnownFFTypes {
-    const Liberty& liberty;
-
    public:
-    ByKnownFFTypes(const GlobalOpts& opts) : liberty(opts.liberty) {}
-
-    bool operator()(const Cell& cell) const {
+    bool operator()(const Cell& cell, const Liberty& liberty) const {
         auto result = liberty.isFF(cell.type);
         LOG(INFO) << "Trying ByKnownFFTypes predicate, for: " << cell << " with: " << result;
         return result;
@@ -88,20 +84,16 @@ class ByKnownFFTypes {
 /*****************************************************************************/
 
 namespace {
-std::vector<std::function<bool(const Cell&)>> initialized_predicates{};
+const std::vector<IsFlipFlop::PredType> initialized_predicates{
+    ByCommonNameSuffixes(),
+    ByCommonTypePrefix(),
+    ByKnownFFTypes(),
+};
 }  // namespace
 
-bool IsFlipFlop::check(const Cell& cell) {
-    auto it = std::ranges::find_if(initialized_predicates, [&cell](const auto& pred) {
-        return pred(cell);
+bool IsFlipFlop::check(const Cell& cell, const Liberty& liberty) {
+    auto it = std::ranges::find_if(initialized_predicates, [&cell, &liberty](const auto& pred) {
+        return pred(cell, liberty);
     });
     return it != initialized_predicates.end();
-}
-
-void IsFlipFlop::ctor(const GlobalOpts& opts) {
-    initialized_predicates = {
-        std::function<bool(const Cell&)>{ByCommonNameSuffixes()},
-        std::function<bool(const Cell&)>{ByCommonTypePrefix()},
-        std::function<bool(const Cell&)>{ByKnownFFTypes(opts)},
-    };
 }

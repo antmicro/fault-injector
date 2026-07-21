@@ -28,6 +28,7 @@
 #ifndef NDEBUG
 #define SEE_CHECK(condition) CHECK(condition)
 #define SEE_PCHECK(condition) PCHECK(condition)
+#define SEE_INTERNAL_CHECK(condition) CHECK(condition)
 #else
 #define SEE_CHECK(condition) \
     if (condition) \
@@ -40,6 +41,12 @@
         ; \
     else \
         LOG(QFATAL).WithPerror()
+#define SEE_INTERNAL_CHECK(condition) \
+    if (condition) \
+        ; \
+    else \
+        LOG(QFATAL).WithPerror() << "Internal error"; \
+    VLOG(10000)
 #endif
 
 inline void LogInitialize() {

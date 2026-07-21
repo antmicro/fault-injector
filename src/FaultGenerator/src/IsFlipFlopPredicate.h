@@ -16,11 +16,14 @@
 
 #pragma once
 
-class GlobalOpts;
+#include <functional>
+
+class Liberty;
 class Cell;
 
 class IsFlipFlop {
    public:
-    static bool check(const Cell& json);
-    static void ctor(const GlobalOpts& opts);
+    using PredType = std::function<bool(const Cell&, const Liberty&)>;
+
+    static bool check(const Cell&, const Liberty&);
 };

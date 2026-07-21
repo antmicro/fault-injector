@@ -7,6 +7,7 @@ add_library(FaultGenerationToolLib
   FaultStrategyWeibull.cpp
   GlobalOpts.cpp
   IsFlipFlopPredicate.cpp
+  Liberty.cpp
   LibertyParser.cpp
   SignalCollector.cpp
 )
@@ -14,14 +15,15 @@ add_library(FaultGenerationToolLib
 target_include_directories(FaultGenerationToolLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(FaultGenerationToolLib
-  PRIVATE
-    nlohmann_json::nlohmann_json
-    absl::flags
-    absl::flags_parse
-    absl::strings
+  PUBLIC
     absl::log
     absl::log_initialize
     absl::check
     "$<LINK_LIBRARY:WHOLE_ARCHIVE,absl::log_flags>"
+    nlohmann_json::nlohmann_json
+  PRIVATE
+    absl::flags
+    absl::flags_parse
+    absl::strings
 )
 

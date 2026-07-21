@@ -22,7 +22,6 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
-#include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <string>

@@ -24,6 +24,7 @@ struct Cell {
     std::string name;
     std::string type;
 
+    Cell() = default;
     Cell(const std::string& name, const nlohmann::json& cell_json)
         : name(name), type(cell_json.value("type", "")) {}
 

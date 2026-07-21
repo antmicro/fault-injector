@@ -14,16 +14,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#pragma once
+#include <cstddef>
 
-#include "Liberty.h"
+struct ScheduledEvent {
+    double time = 0.0;
+    std::size_t signal_id = 0;
 
-#include <optional>
-#include <string>
-#include <vector>
-
-class LibertyParser final {
-   public:
-    static std::optional<LibertyInfo> parse(const std::string&);
-    static std::vector<LibertyInfo> parseFiles(const std::vector<std::string>&);
+    bool operator>(const ScheduledEvent& other) const {
+        if (time != other.time) {
+            return time > other.time;
+        }
+        return signal_id > other.signal_id;
+    }
 };

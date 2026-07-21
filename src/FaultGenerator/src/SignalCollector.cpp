@@ -18,11 +18,13 @@
 
 #include "Cell.h"
 #include "IsFlipFlopPredicate.h"
+#include "Liberty.h"
 #include "LogUtils.h"
 #include "Signal.h"
 
 #include <bitset>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <string_view>
 
@@ -30,7 +32,7 @@
 
 namespace {
 
-/** How many bits parameter.WIDTH takes as a string */
+// How many bits parameter.WIDTH takes as a string
 constexpr unsigned int SIGNAL_WIDTH_PARAMETER_LENGTH = 32;
 unsigned int getSignalWidth(std::string_view width_bits) {
     return std::bitset<SIGNAL_WIDTH_PARAMETER_LENGTH>(std::string(width_bits)).to_ulong();
@@ -101,8 +103,8 @@ std::string SignalCollector::dumpAllModules(const std::vector<Module>& modules) 
     return ss.str();
 }
 
-void SignalCollector::collectCell(Module& mod, const Cell& cell, const nlohmann::json& json) {
-    if (IsFlipFlop::check(cell)) {
+void SignalCollector::collectCell(Module& mod, const Cell& cell, const nlohmann::json& json) const {
+    if (IsFlipFlop::check(cell, liberty)) {
         LOG(INFO) << "Cell '" << cell.name << "' is a flip-flop";
         if (!json.contains("parameters")) {
             LOG(WARNING) << "Cell '" << cell.name
@@ -121,14 +123,19 @@ void SignalCollector::collectCell(Module& mod, const Cell& cell, const nlohmann:
         } else {
             width = getSignalWidth(params["WIDTH"].get<std::string_view>());
         }
-        mod.signals.emplace_back(cell.getPath(), width, SignalType::REGISTER);
+        std::optional<double> area = liberty.getArea(cell.type);
+        if (!area) {
+            LOG(WARNING) << "Cell '" << cell.name << "' has no area in liberty";
+        }
+        mod.signals.emplace_back(cell.getPath(), cell.type, width, area, SignalType::REGISTER);
         VLOG(3) << "Found signal " << mod.signals.back();
     } else {
         VLOG(1) << "Cell '" << cell.name << "' is not a flip-flop. Skipping";
     }
 }
 
-std::vector<SignalCollector::Module> SignalCollector::collectModules(const nlohmann::json& json) {
+std::vector<SignalCollector::Module> SignalCollector::collectModules(const nlohmann::json& json
+) const {
     std::unordered_map<std::string, unsigned int> existing_modules;
     std::vector<Module> modules;
 
@@ -178,7 +185,11 @@ void SignalCollector::recursivelyCollectSignals(
     VLOG(2) << "Collecting signals for '" << mod.name << "' under prefix: " << current_path;
     for (const Signal& signal : mod.signals) {
         collected_signals.emplace_back(
-            combineSignalPath(current_path, signal.signal_path), signal.num_of_bits, signal.type
+            combineSignalPath(current_path, signal.signal_path),
+            signal.cell_type,
+            signal.num_of_bits,
+            signal.area,
+            signal.type
         );
     }
 

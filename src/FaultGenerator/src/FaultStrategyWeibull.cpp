@@ -17,20 +17,32 @@
 #include "FaultStrategyWeibull.h"
 
 #include "FaultEvent.h"
+#include "FaultStrategy.h"
+#include "LogUtils.h"
+#include "ScheduledEvent.h"
 #include "Signal.h"
 #include "Utils.h"
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
+#include <queue>
 #include <random>
 #include <vector>
 
-struct Cell {
-    const double area;
-};
+WeibullStrategy::WeibullStrategy(const Config& config, const WeibullConfig& weibullConfig)
+    : FaultStrategy(config), weibull_config(weibullConfig) {}
+
+double WeibullStrategy::cellArea(const Signal& signal) {
+    if (!signal.area) {
+        // default cell area in case cell wasn't defined in liberty file
+        return weibull_config.cell_area;
+    }
+    return *signal.area;
+}
 
 double WeibullStrategy::eventTime(
-    const Cell& cell,
+    const Signal& signal,
     const WeibullConfig::Stream& stream,
     double g0
 ) {
@@ -40,28 +52,23 @@ double WeibullStrategy::eventTime(
     const double s = weibull_config.shape_parameter;
 
     const double g = g0 * (1.0 - std::exp(-std::pow((stream.let / cos - L0) / W, s)));
-    const double h = g * stream.flux_phi * cell.area * cos;
+    const double h = g * stream.flux_phi * cellArea(signal) * cos;
     const double p = real_dist(gen.random_generator);
+    SEE_INTERNAL_CHECK(h != 0) << "Assertion in WeibullStrategy::eventTime failed";
     const double dt = -std::log(1 - p) / h;
     return dt;
 }
 
-struct History {
-    double curr_time = 0;
-    int stream_id = 0;
-};
-
-WeibullStrategy::WeibullStrategy(const Config& config, const WeibullConfig& weibullConfig)
-    : FaultStrategy(config), weibull_config(weibullConfig) {}
-
 std::vector<FaultEvent> WeibullStrategy::generate(std::span<const Signal> signals) {
     std::vector<FaultEvent> result;
     for (size_t i = 0; i < weibull_config.streams.size(); ++i) {
+        // TODO parallel generation of events for every stream independently
+        LOG(INFO) << "Starting generating for stream #" << i;
         std::vector<FaultEvent> current = generate(weibull_config.streams[i], signals);
-        std::printf("#%ld: %ld\n", i, current.size());
-        for (auto& r : current) {
-            result.emplace_back(r);
-        }
+        LOG(INFO) << "Stream #" << i << " generated " << current.size() << " faults\n";
+        const auto result_size = result.size();
+        std::copy(current.begin(), current.end(), std::back_inserter(result));
+        std::inplace_merge(result.begin(), result.begin() + result_size, result.end());
     }
     return result;
 }
@@ -71,57 +78,38 @@ std::vector<FaultEvent> WeibullStrategy::generate(
     std::span<const Signal> signals
 ) {
     std::vector<FaultEvent> result;
-    Cell cell{.area = weibull_config.cell_area};
     const double g0 = weibull_config.limiting_cross_section *
                       (static_cast<double>(weibull_config.bit_count) / signals.size());
 
-    std::vector<WeibullConfig::Stream> streams = {stream_data};
-    std::vector<std::vector<double>> event_time(
-        signals.size(), std::vector<double>{eventTime(cell, streams.front(), g0)}
-    );
-    std::vector<std::vector<History>> history(signals.size());
-    double curr_time = 0.0;
-    std::uint64_t total_hits = 0;
+    std::priority_queue<ScheduledEvent, std::vector<ScheduledEvent>, std::greater<ScheduledEvent>>
+        event_queue;
 
-    while (true) {
-        std::vector<double> time_list(event_time.size());
-        std::vector<int> indx_list(event_time.size());
+    for (std::size_t signal_id = 0; signal_id < signals.size(); ++signal_id) {
+        event_queue.push(ScheduledEvent{
+            .time = eventTime(signals[signal_id], stream_data, g0),
+            .signal_id = signal_id,
+        });
+    }
 
-        for (size_t i = 0; i < event_time.size(); ++i) {
-            // TODO use priority_queue
-            auto min_it = std::min_element(event_time[i].begin(), event_time[i].end());
-
-            time_list[i] = *min_it;
-            indx_list[i] = static_cast<int>(std::distance(event_time[i].begin(), min_it));
-        }
-
-        // TODO use priority_queue
-        auto min_cell_it = std::min_element(time_list.begin(), time_list.end());
-
-        int cell_id = static_cast<int>(std::distance(time_list.begin(), min_cell_it));
-
-        int stream_id = indx_list[cell_id];
-
-        curr_time = event_time[cell_id][stream_id];
+    while (!event_queue.empty()) {
+        const ScheduledEvent next = event_queue.top();
+        event_queue.pop();
 
         // Finish
-        if (curr_time >= stream_data.max_time) {
+        if (next.time >= stream_data.max_time) {
             break;
         }
 
-        // Store event history
-        history[cell_id].emplace_back(History{curr_time, stream_id});
-        const auto& signal = signals[cell_id];
+        const auto& signal = signals[next.signal_id];
         result.emplace_back(FaultEvent{
-            static_cast<std::uint64_t>(curr_time),
+            static_cast<std::uint64_t>(next.time),
             signal.signal_path,
             bit_dist(gen.random_generator) % signal.num_of_bits,
             FaultEventType::SINGLE_EVENT_UPSET
         });
-        ++total_hits;
 
         // Schedule next one
-        event_time[cell_id][stream_id] += eventTime(cell, streams[stream_id], g0);
+        event_queue.emplace(next.time + eventTime(signal, stream_data, g0), next.signal_id);
     }
 
     return result;

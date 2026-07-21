@@ -14,25 +14,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <cmath>
-#include <string>
-#include <vector>
-
 #include "FaultEvent.h"
 #include "FaultStrategy.h"
 #include "FaultStrategyWeibull.h"
 #include "Signal.h"
 
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <cstdint>
+#include <string>
+#include <vector>
+
 static std::vector<Signal> createSignals(size_t count) {
     std::vector<Signal> signals;
     signals.reserve(count);
     for (size_t i = 0; i < count; ++i) {
-        signals.push_back({"signal_" + std::to_string(i), 1024, SignalType::REGISTER});
+        signals.push_back(
+            {"signal_" + std::to_string(i), std::to_string(i), 1024, {}, SignalType::REGISTER}
+        );
     }
     return signals;
 }
 
-int main() {
+TEST(WeibullGenerationTest, CountsWithinTolerance) {
     // From seu2.py
     constexpr std::uint64_t expected_counts[] = {2431964, 245205, 103683, 101457, 20256,
                                                  99086,   102352, 104023, 97811,  2741,
@@ -72,7 +77,6 @@ int main() {
     WeibullStrategy strategy{config, weibullConfig};
 
     std::vector<FaultEvent> all_events;
-    int failed = 0;
 
     for (size_t i = 0; i < num_streams; ++i) {
         std::vector<FaultEvent> stream_events =
@@ -95,37 +99,13 @@ int main() {
         double diff =
             std::abs(static_cast<double>(count) - static_cast<double>(expected)) / expected;
 
-        if (diff > tolerance) {
-            std::printf(
-                "FAIL stream #%zu: got %llu, expected %llu (%.2f%% diff)\n",
-                i,
-                static_cast<unsigned long long>(count),
-                static_cast<unsigned long long>(expected),
-                diff * 100.0
-            );
-            failed = 1;
-        }
-    }
-
-    if (failed) {
-        return 1;
+        ASSERT_LE(diff, tolerance) << "stream #" << i << ": got " << count << ", expected "
+                                   << expected << " (" << diff * 100.0 << "% diff)";
     }
 
     double total_diff =
         std::abs(static_cast<double>(all_events.size()) - static_cast<double>(expected_total)) /
         expected_total;
-    if (total_diff > 0.05) {
-        std::printf(
-            "FAIL: total events %zu, expected %llu (%.2f%% diff)\n",
-            all_events.size(),
-            static_cast<unsigned long long>(expected_total),
-            total_diff * 100.0
-        );
-        return 1;
-    }
-
-    std::printf(
-        "PASS: all %zu streams within tolerance, total %zu events\n", num_streams, all_events.size()
-    );
-    return 0;
+    EXPECT_LE(total_diff, 0.05) << "total events " << all_events.size() << ", expected "
+                                << expected_total << " (" << total_diff * 100.0 << "% diff)";
 }

@@ -408,22 +408,3 @@ std::vector<LibertyInfo> LibertyParser::parseFiles(const std::vector<std::string
     }
     return res;
 }
-
-/*****************************************************************************/
-
-Liberty::Liberty(const std::vector<std::string>& filepaths) {
-    infos = LibertyParser::parseFiles(filepaths);
-
-    /* Register ff_types */
-    for (const auto& infos : infos) {
-        for (const auto& [cell_name, cell_info] : infos.cells) {
-            if (cell_info.ff_info) {
-                ff_types.insert(cell_name);
-            }
-        }
-    }
-}
-
-bool Liberty::isFF(std::string_view type) const {
-    return ff_types.contains(type);
-}

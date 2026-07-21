@@ -35,9 +35,6 @@ struct BendelConfig {
 };
 
 class BendelStrategy : public FaultStrategy {
-    struct Cell {
-        const double area;
-    };
     std::uniform_real_distribution<double> real_dist;
     std::uniform_int_distribution<std::uint32_t> bit_dist{0, seu::MAX_BITS};
 
@@ -47,5 +44,8 @@ class BendelStrategy : public FaultStrategy {
     std::vector<FaultEvent> generate(std::span<const Signal> signals) override;
     std::vector<FaultEvent> generate(const BendelConfig::Stream&, std::span<const Signal>);
     std::shared_ptr<FaultStrategy> copy_with(FaultStrategy::Config) override;
-    double eventTime(const Cell& cell, const BendelConfig::Stream& stream);
+
+   private:
+    double eventTime(const Signal&, const BendelConfig::Stream&);
+    double cellArea(const Signal&);
 };

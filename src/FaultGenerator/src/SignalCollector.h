@@ -22,19 +22,26 @@
 
 class Cell;
 class Signal;
+class Liberty;
 
 class SignalCollector {
     std::string_view top_module;
     std::string_view top_instance;
     std::string_view prefix_path;
 
+    const Liberty& liberty;
+
    public:
     SignalCollector(
         std::string_view top_module,
         std::string_view top_instance,
-        std::string_view prefix_path
+        std::string_view prefix_path,
+        const Liberty& liberty
     )
-        : top_module(top_module), top_instance(top_instance), prefix_path(prefix_path) {}
+        : top_module(top_module),
+          top_instance(top_instance),
+          prefix_path(prefix_path),
+          liberty(liberty) {}
 
     std::vector<Signal> collectFromFile(const std::string& netlist_filepath) const;
     std::vector<Signal> collectFromJSON(const nlohmann::json& json) const;
@@ -49,8 +56,8 @@ class SignalCollector {
         std::vector<Signal> signals;
     };
 
-    static void collectCell(Module&, const Cell&, const nlohmann::json&);
-    static std::vector<Module> collectModules(const nlohmann::json& json);
+    void collectCell(Module&, const Cell&, const nlohmann::json&) const;
+    std::vector<Module> collectModules(const nlohmann::json& json) const;
     static std::string dumpAllModules(const std::vector<Module>& modules);
     int findTopModule(std::vector<Module>& modules) const;
     void recursivelyCollectSignals(

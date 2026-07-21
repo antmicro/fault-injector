@@ -108,9 +108,6 @@ void from_json(const nlohmann::json& json, GlobalOpts& opts) {
     const auto& model = json.at("model");
     const auto& params = json["params"];
 
-    FaultStrategy::Config config = params.get<FaultStrategy::Config>();
-    opts.strategy = FaultStrategyFactory::buildFromJson(config, model);
-
 #define GET_OR_DEFAULT(name) \
     opts.name = params.value(#name, absl::GetFlagReflectionHandle(FLAGS_##name).DefaultValue())
     GET_OR_DEFAULT(sig_path_prefix);
@@ -129,8 +126,10 @@ void from_json(const nlohmann::json& json, GlobalOpts& opts) {
         VLOG(2) << "GlobalOpts.thread_number set from json/default";
         opts.thread_number = params.value("thread_number", thread_number_default);
     }
-    auto liberty_paths = params.value<std::vector<std::string>>("liberty_paths", {});
-    opts.liberty = Liberty(liberty_paths);
+    opts.liberty_paths = params.value<std::vector<std::string>>("liberty_paths", {});
+
+    FaultStrategy::Config config = params.get<FaultStrategy::Config>();
+    opts.strategy = FaultStrategyFactory::buildFromJson(config, model);
 
     if (absl::GetFlag(FLAGS_fault_campaign_out)) {
         VLOG(2) << "GlobalOpts.fault_campaign_out set from flag";
@@ -146,7 +145,6 @@ void from_json(const nlohmann::json& json, GlobalOpts& opts) {
             opts.fault_campaign_out = fault_campaign_out_directory_defualt;
         }
     }
-    opts.strategy = FaultStrategyFactory::buildFromJson(config, model);
 }
 
 GlobalOpts GlobalOpts::parseCmdArgs(int argc, char** argv) {
@@ -175,8 +173,6 @@ GlobalOpts GlobalOpts::parseCmdArgs(int argc, char** argv) {
             }
         }
 
-        auto liberty_paths = absl::GetFlag(FLAGS_liberty_paths);
-
         // TODO Check that all required flags were passed
         return {
             .sig_path_prefix = absl::GetFlag(FLAGS_sig_path_prefix),
@@ -187,7 +183,7 @@ GlobalOpts GlobalOpts::parseCmdArgs(int argc, char** argv) {
             .campaign_number = campaign_number,
             .thread_number = absl::GetFlag(FLAGS_thread_number).value_or(thread_number_default),
             .strategy = FaultStrategyFactory::defaultStrategy(config),
-            .liberty = Liberty(liberty_paths),
+            .liberty_paths = absl::GetFlag(FLAGS_liberty_paths),
         };
     } else {
         try {

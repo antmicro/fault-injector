@@ -14,16 +14,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#pragma once
+#include "LogUtils.h"
 
-#include "Liberty.h"
+#include <absl/flags/parse.h>
+#include <gtest/gtest.h>
 
-#include <optional>
-#include <string>
-#include <vector>
-
-class LibertyParser final {
-   public:
-    static std::optional<LibertyInfo> parse(const std::string&);
-    static std::vector<LibertyInfo> parseFiles(const std::vector<std::string>&);
-};
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    absl::ParseCommandLine(argc, argv);
+    LogInitialize();
+    return RUN_ALL_TESTS();
+}

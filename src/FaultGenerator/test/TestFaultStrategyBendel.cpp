@@ -32,7 +32,9 @@ std::vector<Signal> createSignals(size_t count) {
     std::vector<Signal> signals;
     signals.reserve(count);
     for (size_t i = 0; i < count; ++i) {
-        signals.push_back({"signal_" + std::to_string(i), 1024, SignalType::REGISTER});
+        signals.push_back(
+            {"signal_" + std::to_string(i), std::to_string(i), 1024, {}, SignalType::REGISTER}
+        );
     }
     return signals;
 }

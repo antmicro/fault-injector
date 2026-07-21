@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <ostream>
 #include <string>
 
@@ -39,11 +40,19 @@ inline std::ostream& operator<<(std::ostream& os, const SignalType& type) {
 
 struct Signal {
     std::string signal_path;
+    std::string cell_type;
     std::uint32_t num_of_bits = 0;
+    std::optional<double> area;
     SignalType type = SignalType::UNKNOWN;
 
     friend std::ostream& operator<<(std::ostream& os, const Signal& signal) {
-        return os << "{ .signal_path=" << signal.signal_path
-                  << ", .num_of_bits=" << signal.num_of_bits << ", .type=" << signal.type << " }";
+        os << "{ .signal_path=" << signal.signal_path << ", .num_of_bits=" << signal.num_of_bits
+           << ", .cell_type=" << signal.cell_type << ", area=";
+        if (signal.area) {
+            os << signal.area.value();
+        } else {
+            os << "nullopt";
+        }
+        return os << ", .type=" << signal.type << " }";
     }
 };

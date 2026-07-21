@@ -17,7 +17,6 @@
 #pragma once
 
 #include "FaultStrategy.h"
-#include "LibertyParser.h"
 
 #include <memory>
 #include <string>
@@ -31,7 +30,7 @@ struct GlobalOpts final {
     std::uint64_t campaign_number;
     std::uint32_t thread_number;
     std::shared_ptr<FaultStrategy> strategy;
-    Liberty liberty;
+    std::vector<std::string> liberty_paths;
 
     static GlobalOpts parseCmdArgs(int argc, char** argv);
 };

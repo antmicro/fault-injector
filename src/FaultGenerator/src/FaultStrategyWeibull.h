@@ -42,10 +42,6 @@ struct WeibullConfig {
 };
 
 class WeibullStrategy : public FaultStrategy {
-    struct Cell {
-        const double area;
-    };
-
    public:
     const WeibullConfig weibull_config;
 
@@ -58,5 +54,8 @@ class WeibullStrategy : public FaultStrategy {
     std::vector<FaultEvent> generate(std::span<const Signal>) override;
     std::vector<FaultEvent> generate(const WeibullConfig::Stream&, std::span<const Signal>);
     std::shared_ptr<FaultStrategy> copy_with(FaultStrategy::Config) override;
-    double eventTime(const Cell& cell, const WeibullConfig::Stream& stream, double g0);
+
+   private:
+    double eventTime(const Signal&, const WeibullConfig::Stream&, double g0);
+    double cellArea(const Signal&);
 };
