@@ -9,6 +9,8 @@ add_library(FaultGenerationToolLib
   IsFlipFlopPredicate.cpp
   Liberty.cpp
   LibertyParser.cpp
+  OpenROADParser.cpp
+  PlacementInfo.cpp
   SignalCollector.cpp
 )
 

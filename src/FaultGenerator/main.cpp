@@ -20,6 +20,7 @@
 #include "IsFlipFlopPredicate.h"
 #include "Liberty.h"
 #include "LogUtils.h"
+#include "PlacementInfo.h"
 #include "Signal.h"
 #include "SignalCollector.h"
 
@@ -131,11 +132,14 @@ void create_directory(std::string_view path) {
 int main(int argc, char* argv[]) {
     const GlobalOpts opts = GlobalOpts::parseCmdArgs(argc, argv);
     const Liberty liberty = Liberty(opts.liberty_paths);
+    const PlacementInfo open_road{};
 
     SEE_CHECK(opts.campaign_number >= 1) << "Cannot run less than one campaign";
 
     std::vector<Signal> signals =
-        SignalCollector(opts.top_module, opts.top_instance, opts.sig_path_prefix, liberty)
+        SignalCollector(
+            opts.top_module, opts.top_instance, opts.sig_path_prefix, liberty, open_road
+        )
             .collectFromFile(opts.netlist_path);
 
     if (opts.campaign_number == 1) {

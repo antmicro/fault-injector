@@ -27,7 +27,7 @@
 
 /*****************************************************************************/
 
-Liberty::Liberty(const std::vector<LibertyInfo>& infos) : infos(infos) {
+Liberty::Liberty(const std::vector<LibertyInfo>& infos_) : infos(infos_) {
     for (const auto& infos : infos) {
         for (const auto& [cell_type, cell_info] : infos.cells) {
             // Register ff_types

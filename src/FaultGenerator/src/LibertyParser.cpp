@@ -356,12 +356,13 @@ std::optional<LibertyInfo> LibertyParser::parse(const std::string& filepath) {
     Parser parser(&lexer);
     LibertyInfo res;
 
-    for (auto [_, lib_parser] : parser) {
-        for (auto [item, cell_parser] : lib_parser) {
-            if (item.name != "cell") {
+    for (auto [lib_item, lib_parser] : parser) {
+        res.name = lib_item.name;
+        for (auto [cell_item, cell_parser] : lib_parser) {
+            if (cell_item.name != "cell") {
                 continue;
             }
-            auto name = item.args[0];
+            auto name = cell_item.args[0];
             std::optional<double> area;
             std::optional<FlipFlopInfo> ff_info;
             for (auto [field, _] : cell_parser) {
@@ -385,7 +386,7 @@ std::optional<LibertyInfo> LibertyParser::parse(const std::string& filepath) {
                          .ff_info = ff_info,
                      }}
                 );
-                VLOG(3) << "Successful insertiion of cell: " << res.cells[std::string(name)];
+                VLOG(3) << "Successful insertion of cell: " << res.cells[std::string(name)];
             } catch (std::exception& e) {
                 VLOG(2) << "Insertion failed: " << e.what();
             }

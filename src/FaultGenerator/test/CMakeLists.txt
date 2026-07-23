@@ -35,7 +35,14 @@ target_link_libraries(TestLibertyParsing PRIVATE FaultGeneratorTestMain)
 target_compile_definitions(TestLibertyParsing PRIVATE
   TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
-add_test(NAME unit.generation.gtest.libertParsing COMMAND TestLibertyParsing)
+add_test(NAME unit.generation.gtest.libertyParsing COMMAND TestLibertyParsing)
+
+add_executable(TestOpenROADParsing TestOpenROADParsing.cpp)
+target_link_libraries(TestOpenROADParsing PRIVATE FaultGeneratorTestMain)
+target_compile_definitions(TestOpenROADParsing PRIVATE
+  TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+add_test(NAME unit.generation.gtest.openroadParsing COMMAND TestOpenROADParsing)
 
 add_executable(TestSignalCollector TestSignalCollector.cpp)
 target_link_libraries(TestSignalCollector

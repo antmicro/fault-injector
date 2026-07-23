@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <map>
 #include <optional>
 #include <ostream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -49,13 +49,14 @@ struct CellInfo {
 };
 
 struct LibertyInfo {
-    std::map<std::string, CellInfo> cells;
+    std::string name;
+    std::unordered_map<std::string, CellInfo> cells;
 };
 
 class Liberty {
     const std::vector<LibertyInfo> infos;
     std::unordered_set<std::string_view> ff_types;
-    std::map<std::string_view, double> cell_areas;
+    std::unordered_map<std::string_view, double> cell_areas;
 
    public:
     Liberty() = default;

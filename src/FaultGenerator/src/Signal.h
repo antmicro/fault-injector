@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "PlacementInfo.h"
+
 #include <cstdint>
 #include <optional>
 #include <ostream>
@@ -43,6 +45,7 @@ struct Signal {
     std::string cell_type;
     std::uint32_t num_of_bits = 0;
     std::optional<double> area;
+    std::optional<Placement> cell_placement;
     SignalType type = SignalType::UNKNOWN;
 
     friend std::ostream& operator<<(std::ostream& os, const Signal& signal) {
@@ -50,6 +53,12 @@ struct Signal {
            << ", .cell_type=" << signal.cell_type << ", area=";
         if (signal.area) {
             os << signal.area.value();
+        } else {
+            os << "nullopt";
+        }
+        os << ", placement=";
+        if (signal.area) {
+            os << signal.cell_placement.value();
         } else {
             os << "nullopt";
         }

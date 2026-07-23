@@ -23,6 +23,7 @@
 class Cell;
 class Signal;
 class Liberty;
+class PlacementInfo;
 
 class SignalCollector {
     std::string_view top_module;
@@ -30,18 +31,21 @@ class SignalCollector {
     std::string_view prefix_path;
 
     const Liberty& liberty;
+    const PlacementInfo& placement;
 
    public:
     SignalCollector(
         std::string_view top_module,
         std::string_view top_instance,
         std::string_view prefix_path,
-        const Liberty& liberty
+        const Liberty& liberty,
+        const PlacementInfo& placement
     )
         : top_module(top_module),
           top_instance(top_instance),
           prefix_path(prefix_path),
-          liberty(liberty) {}
+          liberty(liberty),
+          placement(placement) {}
 
     std::vector<Signal> collectFromFile(const std::string& netlist_filepath) const;
     std::vector<Signal> collectFromJSON(const nlohmann::json& json) const;

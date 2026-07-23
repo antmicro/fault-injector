@@ -16,6 +16,7 @@
 
 #include "IsFlipFlopPredicate.h"
 #include "Liberty.h"
+#include "PlacementInfo.h"
 #include "Signal.h"
 #include "SignalCollector.h"
 
@@ -74,15 +75,46 @@ auto normal_json = R"json({
     }
   }
 })json"_json;
-std::string_view normal_top_module = "dff_worker";
-std::string_view normal_top_instance = "worker";
-std::string_view normal_sig_path_prefix = "top";
-Liberty normal_liberty = {};
+const std::string_view normal_top_module = "dff_worker";
+const std::string_view normal_top_instance = "worker";
+const std::string_view normal_sig_path_prefix = "top";
+const Liberty normal_liberty{{LibertyInfo{
+    "test",
+    {{"$dff", {.area = 10.0}}},
+}}};
+const PlacementInfo normal_placement{
+    std::nullopt,
+    {
+        CellPlacementInfo{
+            "counter$dff",
+            "$dff",
+            {
+                .width = 4,
+                .height = 3,
+                .x = 1,
+                .y = 2,
+            }
+        },
+        CellPlacementInfo{
+            "resp$dff",
+            "$dff",
+            {
+                .width = 5,
+                .height = 6,
+                .x = 8,
+                .y = 7,
+            }
+        },
+    }
+};
 
 TEST(SignalCollectorTests, EmptyNetlist) {
     auto empty_json = R"json({})json"_json;
     ASSERT_DEATH(
-        { (void)SignalCollector("", "", "", {}).collectFromJSON(empty_json); },
+        {
+            (void)SignalCollector("", "", "", normal_liberty, normal_placement)
+                .collectFromJSON(empty_json);
+        },
         "Malformed netlist json"
     );
 }
@@ -99,7 +131,11 @@ TEST(SignalCollectorTests, ModuleWithNoCells) {
     ASSERT_DEATH(
         {
             (void)SignalCollector(
-                normal_top_module, normal_top_instance, normal_sig_path_prefix, normal_liberty
+                normal_top_module,
+                normal_top_instance,
+                normal_sig_path_prefix,
+                normal_liberty,
+                normal_placement
             )
                 .collectFromJSON(json_without_cells);
         },
@@ -111,7 +147,9 @@ TEST(SignalCollectorTests, EmptyTopModule) {
     const auto& json = normal_json;
     ASSERT_DEATH(
         {
-            (void)SignalCollector("", normal_top_instance, normal_sig_path_prefix, normal_liberty)
+            (void)SignalCollector(
+                "", normal_top_instance, normal_sig_path_prefix, normal_liberty, normal_placement
+            )
                 .collectFromJSON(json);
         },
         "Top module not found. Cannot generate faults without signals"
@@ -121,7 +159,9 @@ TEST(SignalCollectorTests, EmptyTopModule) {
 TEST(SignalCollectorTests, EmptyTopInstance) {
     const auto& json = normal_json;
     const auto& signals =
-        SignalCollector(normal_top_module, "", normal_sig_path_prefix, normal_liberty)
+        SignalCollector(
+            normal_top_module, "", normal_sig_path_prefix, normal_liberty, normal_placement
+        )
             .collectFromJSON(json);
 
     // Check if signals are there
@@ -137,7 +177,9 @@ TEST(SignalCollectorTests, EmptyTopInstance) {
 TEST(SignalCollectorTests, EmptySigPathPrefix) {
     const auto& json = normal_json;
     const auto& signals =
-        SignalCollector(normal_top_module, normal_top_instance, "", normal_liberty)
+        SignalCollector(
+            normal_top_module, normal_top_instance, "", normal_liberty, normal_placement
+        )
             .collectFromJSON(json);
 
     // Check if signals are there
@@ -154,7 +196,7 @@ TEST(SignalCollectorTests, NormalNetlist) {
     const auto& json = normal_json;
     const auto& signals =
         SignalCollector(
-            normal_top_module, normal_top_instance, normal_sig_path_prefix, normal_liberty
+            normal_top_module, normal_top_instance, normal_sig_path_prefix, normal_liberty, {}
         )
             .collectFromJSON(json);
 
@@ -168,17 +210,16 @@ TEST(SignalCollectorTests, NormalNetlist) {
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
 }
 
-TEST(SignalCollectorTests, NormalNetlistWithAreas) {
-    Liberty liberty_with_areas = {{LibertyInfo{
-        {{"$dff", {.area = 10.0}}},
-    }}};
-
+TEST(SignalCollectorTests, NormalNetlistWithPlacement) {
     const auto& json = normal_json;
-    const auto& signals =
-        SignalCollector(
-            normal_top_module, normal_top_instance, normal_sig_path_prefix, liberty_with_areas
-        )
-            .collectFromJSON(json);
+    const auto& signals = SignalCollector(
+                              normal_top_module,
+                              normal_top_instance,
+                              normal_sig_path_prefix,
+                              normal_liberty,
+                              normal_placement
+    )
+                              .collectFromJSON(json);
 
     // Check if signals are there
     ASSERT_EQ(signals.size(), 2);
@@ -187,10 +228,20 @@ TEST(SignalCollectorTests, NormalNetlistWithAreas) {
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
     ASSERT_TRUE(signals[0].area);
     EXPECT_EQ(*signals[0].area, 10.0);
+    ASSERT_TRUE(signals[0].cell_placement);
+    EXPECT_EQ(signals[0].cell_placement->width, 4);
+    EXPECT_EQ(signals[0].cell_placement->height, 3);
+    EXPECT_EQ(signals[0].cell_placement->x, 1);
+    EXPECT_EQ(signals[0].cell_placement->y, 2);
 
     EXPECT_EQ(signals[1].signal_path, "top.worker.resp");
     EXPECT_EQ(signals[1].num_of_bits, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
     ASSERT_TRUE(signals[1].area);
     EXPECT_EQ(*signals[1].area, 10.0);
+    ASSERT_TRUE(signals[1].cell_placement);
+    EXPECT_EQ(signals[1].cell_placement->width, 5);
+    EXPECT_EQ(signals[1].cell_placement->height, 6);
+    EXPECT_EQ(signals[1].cell_placement->x, 8);
+    EXPECT_EQ(signals[1].cell_placement->y, 7);
 }

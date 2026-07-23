@@ -25,7 +25,7 @@ fi_add_sim_run(fi_integration_injection_baseline_run
   WORK_DIR "${SIMULATION_DIR}"
 )
 add_test(
-  NAME integration.injection.vcdFaultGoldenfil.baseline
+  NAME integration.injection.vcdFaultGoldenfile.baseline
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target fi_integration_injection_baseline_run --config $<CONFIG>
 )
 

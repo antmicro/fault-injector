@@ -20,6 +20,7 @@
 #include "IsFlipFlopPredicate.h"
 #include "Liberty.h"
 #include "LogUtils.h"
+#include "PlacementInfo.h"
 #include "Signal.h"
 
 #include <bitset>
@@ -123,11 +124,19 @@ void SignalCollector::collectCell(Module& mod, const Cell& cell, const nlohmann:
         } else {
             width = getSignalWidth(params["WIDTH"].get<std::string_view>());
         }
+
         std::optional<double> area = liberty.getArea(cell.type);
         if (!area) {
             LOG(WARNING) << "Cell '" << cell.name << "' has no area in liberty";
         }
-        mod.signals.emplace_back(cell.getPath(), cell.type, width, area, SignalType::REGISTER);
+        auto cell_placement = placement.getCellPlacement(cell.name);
+        if (!cell_placement) {
+            LOG(WARNING) << "Cell '" << cell.name << "' has no placement info";
+        }
+
+        mod.signals.emplace_back(
+            cell.getPath(), cell.type, width, area, cell_placement, SignalType::REGISTER
+        );
         VLOG(3) << "Found signal " << mod.signals.back();
     } else {
         VLOG(1) << "Cell '" << cell.name << "' is not a flip-flop. Skipping";
@@ -189,6 +198,7 @@ void SignalCollector::recursivelyCollectSignals(
             signal.cell_type,
             signal.num_of_bits,
             signal.area,
+            signal.cell_placement,
             signal.type
         );
     }
