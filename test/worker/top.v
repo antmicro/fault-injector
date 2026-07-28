@@ -18,7 +18,7 @@ parameter int CYCLES = 20;
 parameter int CLOCK_PERIOD = 5;
 
 module top;
-  bit clk = 0;
+  logic clk = 0;
   initial forever #CLOCK_PERIOD clk = !clk;
 
   reg req_vld = 1;
