@@ -17,6 +17,7 @@
 #include "FaultStrategyRandom.h"
 
 #include "Constants.h"
+#include "FaultEvent.h"
 #include "FaultStrategy.h"
 
 #include <algorithm>
@@ -33,21 +34,22 @@ std::vector<FaultEvent> RandomStrategy::generate(std::span<const Signal> signals
     }
     std::sort(time_values.begin(), time_values.end());
 
-    std::uniform_int_distribution<uint64_t> bit_dist(0, seu::MAX_BITS);
+    std::uniform_int_distribution<uint32_t> bit_dist(0, seu::MAX_BITS);
     std::uniform_int_distribution<uint32_t> sig_dist(0, signals.size() - 1);
-    std::vector<FaultEvent> fault_events(config.num_of_events);
+    std::vector<FaultEvent> fault_events;
+    fault_events.reserve(config.num_of_events);
     for (unsigned int index = 0; index < config.num_of_events; ++index) {
-        FaultEvent& fault_event = fault_events[index];
-        fault_event.time = time_values[index];
-
         auto idx = sig_dist(gen.random_generator);
         const Signal& signal = signals[idx];
 
-        fault_event.signal_path = signal.signal_path;
-        fault_event.bit_index = bit_dist(gen.random_generator) % signal.num_of_bits;
-        fault_event.type = signal.type == SignalType::REGISTER
-                               ? FaultEventType::SINGLE_EVENT_UPSET
-                               : FaultEventType::SINGLE_EVENT_TRANSIENT;
+        fault_events.emplace_back(
+            signals.cbegin() + idx,
+            time_values[index],
+            signal.signal_path,
+            bit_dist(gen.random_generator) % signal.width,
+            signal.type == SignalType::REGISTER ? FaultEventType::SINGLE_EVENT_UPSET
+                                                : FaultEventType::SINGLE_EVENT_TRANSIENT
+        );
     }
     return fault_events;
 }

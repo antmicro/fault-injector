@@ -93,9 +93,10 @@ std::vector<FaultEvent> BendelStrategy::generate(
 
         const auto& signal = signals[next.signal_id];
         result.emplace_back(
+            signals.cbegin() + next.signal_id,
             static_cast<std::uint64_t>(next.time),
             signal.signal_path,
-            bit_dist(gen.random_generator) % signal.num_of_bits,
+            bit_dist(gen.random_generator) % signal.width,
             FaultEventType::SINGLE_EVENT_UPSET
         );
 

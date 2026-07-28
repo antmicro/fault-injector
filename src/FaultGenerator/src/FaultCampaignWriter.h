@@ -16,20 +16,20 @@
 
 #pragma once
 
-#include <atomic>
-#include <cstring>
-#include <numbers>
+#include "FaultEvent.h"
 
-namespace seu {
-static constexpr double deg2rad(double deg) {
-    return deg * std::numbers::pi / 180.0;
-}
-};  // namespace seu
+#include <functional>
+#include <vector>
 
-struct CharSet {
-    const char* set;
+class FaultCampaignWriter {
+   public:
+    using FaultFormatter = std::function<FaultEvent(FaultEvent)>;
 
-    CharSet(const char* set) : set(set) {}
+   private:
+    const FaultFormatter& formatter;
 
-    bool contains(char c) { return strchr(set, c); }
+   public:
+    explicit FaultCampaignWriter(const FaultFormatter& formatter) : formatter(formatter) {}
+    void write(std::ostream&, const std::vector<FaultEvent>&) const;
+    void write(const std::string&, const std::vector<FaultEvent>&) const;
 };

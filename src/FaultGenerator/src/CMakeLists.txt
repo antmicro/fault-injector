@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_library(FaultGenerationToolLib
+  FaultCampaignWriter.cpp
   FaultStrategyBendel.cpp
   FaultStrategyFactory.cpp
   FaultStrategyRandom.cpp
@@ -12,6 +13,7 @@ add_library(FaultGenerationToolLib
   OpenROADParser.cpp
   PlacementInfo.cpp
   SignalCollector.cpp
+  SignalGroupingFaultFormatter.cpp
 )
 
 target_include_directories(FaultGenerationToolLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

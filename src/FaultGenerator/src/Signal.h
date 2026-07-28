@@ -17,6 +17,7 @@
 #pragma once
 
 #include "PlacementInfo.h"
+#include "Utils.h"
 
 #include <cstdint>
 #include <optional>
@@ -41,27 +42,32 @@ inline std::ostream& operator<<(std::ostream& os, const SignalType& type) {
 }
 
 struct Signal {
+    using Iterator = std::span<const Signal>::const_iterator;
+
     std::string signal_path;
     std::string cell_type;
-    std::uint32_t num_of_bits = 0;
+    std::uint32_t width;
     std::optional<double> area;
     std::optional<Placement> cell_placement;
     SignalType type = SignalType::UNKNOWN;
 
     friend std::ostream& operator<<(std::ostream& os, const Signal& signal) {
-        os << "{ .signal_path=" << signal.signal_path << ", .num_of_bits=" << signal.num_of_bits
-           << ", .cell_type=" << signal.cell_type << ", area=";
+        os << "{ .signal_path=" << signal.signal_path;
+        os << ", .cell_type=" << signal.cell_type;
+        os << ", .width=" << signal.width;
+        os << ", .area=";
         if (signal.area) {
             os << signal.area.value();
         } else {
             os << "nullopt";
         }
-        os << ", placement=";
+        os << ", .placement=";
         if (signal.area) {
             os << signal.cell_placement.value();
         } else {
             os << "nullopt";
         }
-        return os << ", .type=" << signal.type << " }";
+        os << ", .type=" << signal.type;
+        return os << " }";
     }
 };

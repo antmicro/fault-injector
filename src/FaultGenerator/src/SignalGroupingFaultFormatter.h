@@ -16,20 +16,27 @@
 
 #pragma once
 
-#include <atomic>
-#include <cstring>
-#include <numbers>
+#include <span>
+#include <string_view>
+#include <vector>
 
-namespace seu {
-static constexpr double deg2rad(double deg) {
-    return deg * std::numbers::pi / 180.0;
-}
-};  // namespace seu
+class Signal;
+class FaultEvent;
 
-struct CharSet {
-    const char* set;
+class SignalGroupingFaultFormatter {
+    struct SignalData {
+        std::string_view path;
+        std::size_t bit_idx;
+    };
 
-    CharSet(const char* set) : set(set) {}
+    std::vector<SignalData> real_signals_cache;
+    std::span<const Signal> signals;
 
-    bool contains(char c) { return strchr(set, c); }
+   public:
+    SignalGroupingFaultFormatter(std::span<const Signal>);
+    FaultEvent operator()(FaultEvent) const;
+
+   private:
+    void insert(std::size_t, const Signal&);
+    void insertUngrouped(std::size_t, const Signal&);
 };

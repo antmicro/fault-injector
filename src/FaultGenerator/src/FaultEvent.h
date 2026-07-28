@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "Signal.h"
+
 #include <cstdint>
 #include <ostream>
 #include <string>
@@ -39,9 +41,19 @@ inline std::ostream& operator<<(std::ostream& os, FaultEventType type) {
 }
 
 struct FaultEvent {
+    Signal::Iterator it;
     std::uint64_t time = 0;
     std::string signal_path;
     std::uint32_t bit_index = 0;
     FaultEventType type = FaultEventType::UNKNOWN;
+
     bool operator<(const FaultEvent& other) const { return time < other.time; }
+
+    friend std::ostream& operator<<(std::ostream& os, const FaultEvent& ev) {
+        os << "{ .time=" << ev.time;
+        os << ", .signal_path=" << ev.signal_path;
+        os << ", .bit_index=" << ev.bit_index;
+        os << ", .type=" << ev.type;
+        return os << " }";
+    }
 };

@@ -51,6 +51,13 @@ target_link_libraries(TestSignalCollector
 )
 add_test(NAME unit.generation.gtest.signalCollector COMMAND TestSignalCollector)
 
+add_executable(TestSignalGroupingFaultFormatter TestSignalGroupingFaultFormatter.cpp)
+target_link_libraries(TestSignalGroupingFaultFormatter
+  PRIVATE
+    FaultGeneratorTestMain
+)
+add_test(NAME unit.generation.gtest.signalGroupingFaultFormatter COMMAND TestSignalGroupingFaultFormatter)
+
 # Binary for testing LibertyParser
 add_executable(LibertyParserBin LibertyParser.cpp)
 target_link_libraries(LibertyParserBin

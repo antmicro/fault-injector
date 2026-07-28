@@ -63,6 +63,7 @@ class SignalCollector {
     void collectCell(Module&, const Cell&, const nlohmann::json&) const;
     std::vector<Module> collectModules(const nlohmann::json& json) const;
     static std::string dumpAllModules(const std::vector<Module>& modules);
+
     int findTopModule(std::vector<Module>& modules) const;
     void recursivelyCollectSignals(
         std::vector<Signal>& collected_signals,

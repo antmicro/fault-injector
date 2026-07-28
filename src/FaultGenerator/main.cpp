@@ -14,6 +14,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "FaultCampaignWriter.h"
 #include "FaultEvent.h"
 #include "FaultStrategy.h"
 #include "GlobalOpts.h"
@@ -23,9 +24,9 @@
 #include "PlacementInfo.h"
 #include "Signal.h"
 #include "SignalCollector.h"
+#include "SignalGroupingFaultFormatter.h"
 
 #include <filesystem>
-#include <fstream>
 #include <future>
 #include <iostream>
 #include <iterator>
@@ -36,12 +37,14 @@
 struct TaskInput {
     std::shared_ptr<FaultStrategy> strategy;
     std::span<const Signal> signals;
+    const FaultCampaignWriter& writer;
     std::string output_file;
 };
 
 std::vector<TaskInput> generate_tasks(
     const std::shared_ptr<FaultStrategy> strategy,
     const std::vector<Signal>& signals,
+    const FaultCampaignWriter& writer,
     const std::string& root_path,
     std::uint64_t seed,
     std::uint64_t count
@@ -59,31 +62,60 @@ std::vector<TaskInput> generate_tasks(
         };
         std::stringstream ss;
         ss << root_path << "/fault_campaign_" << new_config.seed << ".csv";
-        result.emplace_back(strategy->copy_with(new_config), signals, ss.str());
+        result.emplace_back(strategy->copy_with(new_config), signals, writer, ss.str());
     }
     return result;
 }
 
 void generate_single_campaign(const TaskInput& input) {
-    LOG(INFO) << "call generate_single_campaign" << std::endl;
-    const std::vector<FaultEvent> fault_events = input.strategy->generate(input.signals);
-    std::ofstream of(input.output_file);
-    if (!of) {
-        std::cerr << "cannot open '" << input.output_file << "'\n"
-                  << "Skipping campaign\n";
-        return;
-    }
-    for (const FaultEvent& fault_event : fault_events) {
-        of << fault_event.time << ',' << fault_event.signal_path << ',' << fault_event.bit_index
-           << ',' << fault_event.type << '\n';
+    LOG(INFO) << "call generate_single_campaign";
+    try {
+        const std::vector<FaultEvent> fault_events = input.strategy->generate(input.signals);
+        input.writer.write(input.output_file, fault_events);
+        LOG(INFO) << "generate_single_campaign succeeded";
+    } catch (...) {
+        SEE_CHECK(false) << "generate_single_campaign failed";
     }
 }
 
-void generate_many_campaigns(const GlobalOpts& opts, std::vector<Signal>&& signals) {
-    LOG(INFO) << "call generate_many_campaigns" << std::endl;
+void create_directory(std::string_view path) {
+    using namespace std::filesystem;
+    if (exists(path) && is_directory(path)) {
+        return;
+    }
+    std::stringstream ss;
+    try {
+        if (create_directories(path)) {
+            return;
+        }
+        SEE_CHECK(false) << "Cannot create directory '" << path << "'";
+    } catch (std::exception& e) {
+        LOG(INFO) << e.what();
+        SEE_CHECK(false) << "Cannot create directory '" << path << "'";
+    }
+}
+
+void generate_campaigns(const GlobalOpts& opts, const std::vector<Signal>& signals) {
+    FaultCampaignWriter::FaultFormatter formatter{SignalGroupingFaultFormatter(signals)};
+    FaultCampaignWriter writer{formatter};
+
+    if (opts.campaign_number == 1) {
+        generate_single_campaign(
+            {.strategy = opts.strategy,
+             .signals = signals,
+             .writer = writer,
+             .output_file = opts.fault_campaign_out}
+        );
+        return;
+    }
+
+    create_directory(opts.fault_campaign_out);
+    LOG(INFO) << "call generate_many_campaigns";
+
     std::vector<TaskInput> tasks = generate_tasks(
         opts.strategy,
         signals,
+        writer,
         opts.fault_campaign_out,
         opts.strategy->config.seed,
         opts.campaign_number
@@ -112,23 +144,6 @@ void generate_many_campaigns(const GlobalOpts& opts, std::vector<Signal>&& signa
     }
 }
 
-void create_directory(std::string_view path) {
-    using namespace std::filesystem;
-    if (exists(path) && is_directory(path)) {
-        return;
-    }
-    std::stringstream ss;
-    try {
-        if (create_directories(path)) {
-            return;
-        }
-        SEE_CHECK(false) << "Cannot create directory '" << path << "'";
-    } catch (std::exception& e) {
-        LOG(INFO) << e.what();
-        SEE_CHECK(false) << "Cannot create directory '" << path << "'";
-    }
-}
-
 int main(int argc, char* argv[]) {
     const GlobalOpts opts = GlobalOpts::parseCmdArgs(argc, argv);
     const Liberty liberty = Liberty(opts.liberty_paths);
@@ -136,19 +151,13 @@ int main(int argc, char* argv[]) {
 
     SEE_CHECK(opts.campaign_number >= 1) << "Cannot run less than one campaign";
 
-    std::vector<Signal> signals =
+    // IMPORTANT: architecture of this system requires that signals vector is not
+    // changed, to not invalidate stored iterators. It must remain `const`
+    const std::vector<Signal> signals =
         SignalCollector(
             opts.top_module, opts.top_instance, opts.sig_path_prefix, liberty, open_road
         )
             .collectFromFile(opts.netlist_path);
 
-    if (opts.campaign_number == 1) {
-        generate_single_campaign(
-            {.strategy = opts.strategy, .signals = signals, .output_file = opts.fault_campaign_out}
-        );
-
-    } else {
-        create_directory(opts.fault_campaign_out);
-        generate_many_campaigns(opts, std::move(signals));
-    }
+    generate_campaigns(opts, signals);
 }

@@ -167,10 +167,10 @@ TEST(SignalCollectorTests, EmptyTopInstance) {
     // Check if signals are there
     ASSERT_EQ(signals.size(), 2);
     EXPECT_EQ(signals[0].signal_path, "top..counter");
-    EXPECT_EQ(signals[0].num_of_bits, 32);
+    EXPECT_EQ(signals[0].width, 32);
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
     EXPECT_EQ(signals[1].signal_path, "top..resp");
-    EXPECT_EQ(signals[1].num_of_bits, 32);
+    EXPECT_EQ(signals[1].width, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
 }
 
@@ -185,10 +185,10 @@ TEST(SignalCollectorTests, EmptySigPathPrefix) {
     // Check if signals are there
     ASSERT_EQ(signals.size(), 2);
     EXPECT_EQ(signals[0].signal_path, "worker.counter");
-    EXPECT_EQ(signals[0].num_of_bits, 32);
+    EXPECT_EQ(signals[0].width, 32);
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
     EXPECT_EQ(signals[1].signal_path, "worker.resp");
-    EXPECT_EQ(signals[1].num_of_bits, 32);
+    EXPECT_EQ(signals[1].width, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
 }
 
@@ -203,10 +203,10 @@ TEST(SignalCollectorTests, NormalNetlist) {
     // Check if signals are there
     ASSERT_EQ(signals.size(), 2);
     EXPECT_EQ(signals[0].signal_path, "top.worker.counter");
-    EXPECT_EQ(signals[0].num_of_bits, 32);
+    EXPECT_EQ(signals[0].width, 32);
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
     EXPECT_EQ(signals[1].signal_path, "top.worker.resp");
-    EXPECT_EQ(signals[1].num_of_bits, 32);
+    EXPECT_EQ(signals[1].width, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
 }
 
@@ -224,7 +224,7 @@ TEST(SignalCollectorTests, NormalNetlistWithPlacement) {
     // Check if signals are there
     ASSERT_EQ(signals.size(), 2);
     EXPECT_EQ(signals[0].signal_path, "top.worker.counter");
-    EXPECT_EQ(signals[0].num_of_bits, 32);
+    EXPECT_EQ(signals[0].width, 32);
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
     ASSERT_TRUE(signals[0].area);
     EXPECT_EQ(*signals[0].area, 10.0);
@@ -235,7 +235,7 @@ TEST(SignalCollectorTests, NormalNetlistWithPlacement) {
     EXPECT_EQ(signals[0].cell_placement->y, 2);
 
     EXPECT_EQ(signals[1].signal_path, "top.worker.resp");
-    EXPECT_EQ(signals[1].num_of_bits, 32);
+    EXPECT_EQ(signals[1].width, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
     ASSERT_TRUE(signals[1].area);
     EXPECT_EQ(*signals[1].area, 10.0);

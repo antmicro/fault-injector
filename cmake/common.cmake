@@ -441,12 +441,16 @@ function(fi_add_sim_run NAME)
     set(_expect_vcd_arg "${FI_WORK_DIR}/logs/vlt_dump.vcd\\;${FI_EXPECT_VCD_GOLDENFILE}")
     list(APPEND _args "-DFI_EXPECT_VCD_GOLDENFILE=${_expect_vcd_arg}")
   endif()
+  set(_fi_command_arg "${FI_EXECUTABLE}")
+  if(FI_ARGS)
+    string(APPEND _fi_command_arg ";${FI_ARGS}")
+  endif()
 
   add_custom_command(
     OUTPUT "${_stamp}"
     COMMAND
       "${CMAKE_COMMAND}"
-      "-DFI_COMMAND=${FI_EXECUTABLE};${FI_ARGS}"
+      "-DFI_COMMAND=${_fi_command_arg}"
       "-DFI_WORK_DIR=${FI_WORK_DIR}"
       "-DFI_LOG=${FI_LOG}"
       ${_args}

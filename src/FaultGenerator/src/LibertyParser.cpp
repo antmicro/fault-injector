@@ -17,11 +17,11 @@
 #include "LibertyParser.h"
 
 #include "LogUtils.h"
+#include "Utils.h"
 
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <fstream>
 #include <istream>
 #include <iterator>
@@ -30,19 +30,6 @@
 #include <string_view>
 #include <tuple>
 #include <vector>
-
-/*****************************************************************************/
-/*   Utility */
-
-struct CharSet {
-    const char* set;
-
-    CharSet(const char* set) : set(set) {}
-
-    bool contains(char c) { return strchr(set, c); }
-};
-
-/*****************************************************************************/
 
 enum class TokenKind {
     Eof,

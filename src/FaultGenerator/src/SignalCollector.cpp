@@ -82,7 +82,7 @@ int SignalCollector::findTopModule(std::vector<SignalCollector::Module>& modules
             return index;
         }
     }
-    VLOG(3) << dumpAllModules(modules);
+    VLOG(3) << "Modules:\n" << dumpAllModules(modules);
     VLOG(3) << "Top module: " << top_module;
     SEE_CHECK(false) << "Top module not found. Cannot generate faults without signals.";
 }
@@ -196,7 +196,7 @@ void SignalCollector::recursivelyCollectSignals(
         collected_signals.emplace_back(
             combineSignalPath(current_path, signal.signal_path),
             signal.cell_type,
-            signal.num_of_bits,
+            signal.width,
             signal.area,
             signal.cell_placement,
             signal.type
