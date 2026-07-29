@@ -105,7 +105,7 @@ std::vector<FaultEvent> WeibullStrategy::generate(
             static_cast<std::uint64_t>(next.time),
             signal.signal_path,
             bit_dist(gen.random_generator) % signal.width,
-            FaultEventType::SINGLE_EVENT_UPSET
+            faultEventType(signal.type)
         });
 
         // Schedule next one

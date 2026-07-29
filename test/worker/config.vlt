@@ -17,6 +17,7 @@
 `verilator_config
 
 public_flat_rw -module "worker" -var "*"
-public_flat_rw -module "dff_worker0" -var "*"
+forceable -module "worker" -var "*"
+public_flat_rw -module "dff_worker" -var "*"
 
 `verilog

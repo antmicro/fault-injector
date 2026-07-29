@@ -162,7 +162,7 @@ class FaultInjector {
             event.sig_path.c_str(),
             vpi_value.value.integer
         );
-        vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiNoDelay);
+        vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiForceFlag);
 
         // Insert after all ops on event as insert invalidates it.
         events.insert(
@@ -193,7 +193,7 @@ class FaultInjector {
             event.sig_path.c_str(),
             vpi_value.value.integer
         );
-        vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiNoDelay);
+        vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiReleaseFlag);
     }
 
     void simulateSingleEventUpset(const s_vpi_time& time, const Event& event) {

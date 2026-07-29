@@ -47,8 +47,7 @@ std::vector<FaultEvent> RandomStrategy::generate(std::span<const Signal> signals
             time_values[index],
             signal.signal_path,
             bit_dist(gen.random_generator) % signal.width,
-            signal.type == SignalType::REGISTER ? FaultEventType::SINGLE_EVENT_UPSET
-                                                : FaultEventType::SINGLE_EVENT_TRANSIENT
+            faultEventType(signal.type)
         );
     }
     return fault_events;

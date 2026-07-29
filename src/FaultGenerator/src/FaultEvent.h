@@ -28,6 +28,11 @@ enum class FaultEventType : std::uint8_t {
     SINGLE_EVENT_UPSET,
 };
 
+inline FaultEventType faultEventType(SignalType signal_type) {
+    return signal_type == SignalType::REGISTER ? FaultEventType::SINGLE_EVENT_UPSET
+                                               : FaultEventType::SINGLE_EVENT_TRANSIENT;
+}
+
 inline std::ostream& operator<<(std::ostream& os, FaultEventType type) {
     switch (type) {
         case FaultEventType::SINGLE_EVENT_TRANSIENT:
