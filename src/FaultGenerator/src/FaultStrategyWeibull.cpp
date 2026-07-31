@@ -33,14 +33,6 @@
 WeibullStrategy::WeibullStrategy(const Config& config, const WeibullConfig& weibullConfig)
     : FaultStrategy(config), weibull_config(weibullConfig) {}
 
-double WeibullStrategy::cellArea(const Signal& signal) {
-    if (!signal.area) {
-        // default cell area in case cell wasn't defined in liberty file
-        return weibull_config.cell_area;
-    }
-    return *signal.area;
-}
-
 double WeibullStrategy::eventTime(
     const Signal& signal,
     const WeibullConfig::Stream& stream,
@@ -52,9 +44,9 @@ double WeibullStrategy::eventTime(
     const double s = weibull_config.shape_parameter;
 
     const double g = g0 * (1.0 - std::exp(-std::pow((stream.let / cos - L0) / W, s)));
-    const double h = g * stream.flux_phi * cellArea(signal) * cos;
+    const double h = g * stream.flux_phi * signal.area * cos;
     const double p = real_dist(gen.random_generator);
-    SEE_INTERNAL_CHECK(h != 0) << "Assertion in WeibullStrategy::eventTime failed";
+    assert(h != 0);
     const double dt = -std::log(1 - p) / h;
     return dt;
 }
@@ -70,6 +62,7 @@ std::vector<FaultEvent> WeibullStrategy::generate(std::span<const Signal> signal
         std::copy(current.begin(), current.end(), std::back_inserter(result));
         std::inplace_merge(result.begin(), result.begin() + result_size, result.end());
     }
+    LOG(INFO) << "Weibull strategy generated " << result.size() << " faults";
     return result;
 }
 
@@ -91,12 +84,18 @@ std::vector<FaultEvent> WeibullStrategy::generate(
         });
     }
 
+    const double max_time =
+        std::min(stream_data.max_time, static_cast<double>(config.simulation_time));
     while (!event_queue.empty()) {
         const ScheduledEvent next = event_queue.top();
         event_queue.pop();
 
-        // Finish
-        if (next.time >= stream_data.max_time) {
+        if (next.time >= max_time) {
+            break;
+        }
+        if (config.tooManyEventsGenerated(result.size())) {
+            LOG(WARNING) << "Amount of generated fault exceeded number specified in the config. "
+                            "Stoping generation.";
             break;
         }
 

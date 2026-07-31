@@ -35,6 +35,7 @@
     "top_module": "dff_worker",
     "top_instance": "worker",
     "netlist_path": "@NETLIST_PATH@",
-    "fault_campaign_out": "@FAULT_CAMPAIGN_OUT@"
+    "fault_campaign_out": "@FAULT_CAMPAIGN_OUT@",
+    "liberty_paths": [ "@PDK_PATH@" ]
   }
 }

@@ -26,6 +26,8 @@
 #include <string>
 #include <vector>
 
+const double DEFAULT_CELL_AREA = 0.25 * 1e-6;  // [cm^2]
+
 static std::vector<Signal> createSignals(size_t count) {
     std::vector<Signal> signals;
     signals.reserve(count);
@@ -34,7 +36,7 @@ static std::vector<Signal> createSignals(size_t count) {
             {"signal_" + std::to_string(i),
              std::to_string(i),
              1024,
-             std::nullopt,
+             DEFAULT_CELL_AREA,
              std::nullopt,
              SignalType::REGISTER}
         );
@@ -53,7 +55,7 @@ TEST(WeibullGenerationTest, CountsWithinTolerance) {
 
     std::vector<Signal> signals = createSignals(100);
 
-    FaultStrategy::Config config{0, 42, 0};
+    FaultStrategy::Config config{9999999, 42, 9999999};
 
     WeibullConfig weibullConfig{
         .streams =
@@ -104,7 +106,7 @@ TEST(WeibullGenerationTest, CountsWithinTolerance) {
         double diff =
             std::abs(static_cast<double>(count) - static_cast<double>(expected)) / expected;
 
-        ASSERT_LE(diff, tolerance) << "stream #" << i << ": got " << count << ", expected "
+        EXPECT_LE(diff, tolerance) << "stream #" << i << ": got " << count << ", expected "
                                    << expected << " (" << diff * 100.0 << "% diff)";
     }
 

@@ -3,6 +3,7 @@
 set(SCENARIO_TARGET fi_e2e_worker_basic_random)
 set(FAULT_CAMPAIGN_OUT "${WORK_DIR}/random_campaign.csv")
 set(SIMULATION_DIR "${WORK_DIR}/random")
+set(PDK_PATH "${WORKER_PDK_PATH}")
 
 fi_configure_file("${CMAKE_CURRENT_LIST_DIR}/config.json.in")
 fi_add_fault_campaign(fi_e2e_worker_basic_random_campaign

@@ -75,12 +75,12 @@ auto normal_json = R"json({
     }
   }
 })json"_json;
-const std::string_view normal_top_module = "dff_worker";
-const std::string_view normal_top_instance = "worker";
-const std::string_view normal_sig_path_prefix = "top";
-const Liberty normal_liberty{{LibertyInfo{
+std::string_view normal_top_module = "dff_worker";
+std::string_view normal_top_instance = "worker";
+std::string_view normal_sig_path_prefix = "top";
+Liberty normal_liberty = {{LibertyInfo{
     "test",
-    {{"$dff", {.area = 10.0}}},
+    {{"$dff", {.area = 10.0, .ff_info = FlipFlopInfo{}}}},
 }}};
 const PlacementInfo normal_placement{
     std::nullopt,
@@ -192,6 +192,23 @@ TEST(SignalCollectorTests, EmptySigPathPrefix) {
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
 }
 
+TEST(SignalCollectorTests, EmptyLiberty) {
+    ASSERT_DEATH(
+        {
+            const auto& json = normal_json;
+            const auto& signals = SignalCollector(
+                                      normal_top_module,
+                                      normal_top_instance,
+                                      normal_sig_path_prefix,
+                                      {},
+                                      normal_placement
+            )
+                                      .collectFromJSON(json);
+        },
+        "No signals found, cannot generate faults"
+    );
+}
+
 TEST(SignalCollectorTests, NormalNetlist) {
     const auto& json = normal_json;
     const auto& signals =
@@ -227,7 +244,7 @@ TEST(SignalCollectorTests, NormalNetlistWithPlacement) {
     EXPECT_EQ(signals[0].width, 32);
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
     ASSERT_TRUE(signals[0].area);
-    EXPECT_EQ(*signals[0].area, 10.0);
+    EXPECT_EQ(signals[0].area, 10.0);
     ASSERT_TRUE(signals[0].cell_placement);
     EXPECT_EQ(signals[0].cell_placement->width, 4);
     EXPECT_EQ(signals[0].cell_placement->height, 3);
@@ -238,7 +255,7 @@ TEST(SignalCollectorTests, NormalNetlistWithPlacement) {
     EXPECT_EQ(signals[1].width, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
     ASSERT_TRUE(signals[1].area);
-    EXPECT_EQ(*signals[1].area, 10.0);
+    EXPECT_EQ(signals[1].area, 10.0);
     ASSERT_TRUE(signals[1].cell_placement);
     EXPECT_EQ(signals[1].cell_placement->width, 5);
     EXPECT_EQ(signals[1].cell_placement->height, 6);

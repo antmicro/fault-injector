@@ -57,5 +57,4 @@ class WeibullStrategy : public FaultStrategy {
 
    private:
     double eventTime(const Signal&, const WeibullConfig::Stream&, double g0);
-    double cellArea(const Signal&);
 };

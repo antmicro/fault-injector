@@ -8,6 +8,7 @@ set(SCENARIO_TARGET fi_e2e_worker_synth_regression)
 set(WORK_DIR "${CMAKE_CURRENT_BINARY_DIR}/work")
 set(SOURCES "${FI_E2E_WORKER_DIR}/dff_worker.v")
 set(TEST_DIR "${FI_E2E_WORKER_DIR}")
+set(PDK_PATH "${WORKER_PDK_PATH}")
 
 set(FAULT_CAMPAIGN_OUT "${WORK_DIR}/fault_campaign_out_no_techmap.csv")
 set(NETLIST_PATH "${WORK_DIR}/dff_worker_post_synth_no_techmap.json")

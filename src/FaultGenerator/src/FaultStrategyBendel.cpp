@@ -31,23 +31,15 @@
 BendelStrategy::BendelStrategy(const Config& config, const BendelConfig& bendelConfig)
     : FaultStrategy(config), bendel_config(bendelConfig) {}
 
-double BendelStrategy::cellArea(const Signal& signal) {
-    if (!signal.area) {
-        // default cell area in case cell wasn't defined in liberty file
-        return bendel_config.device_area / bendel_config.num_cells;
-    }
-    return *signal.area;
-}
-
 double BendelStrategy::eventTime(const Signal& signal, const BendelConfig::Stream& stream) {
     const double E = stream.energy;
     const double Y = std::sqrt(18.0 / stream.A) * (E * 1e-6 - stream.A);
-    const double X = 1e-6 * std::pow(stream.B / stream.A, 14.0) *
-                     std::pow((1.0 - std::exp(-0.18 * std::sqrt(Y))), 4.0);
+    const double X =
+        std::pow(stream.B / stream.A, 14.0) * std::pow((1.0 - std::exp(-0.18 * std::sqrt(Y))), 4.0);
     const double cos = std::cos(seu::deg2rad(seu::FLUX_THETA));
-    const double h = X * stream.flux_phi * cellArea(signal) * cos;
+    const double h = X * stream.flux_phi * signal.area * cos;
     const double p = real_dist(gen.random_generator);
-    SEE_INTERNAL_CHECK(E >= 0 && h != 0) << "Assertion in BendelStrategy::eventTime failed";
+    assert(E >= 0 && h != 0);
     const double dt = -std::log(1.0 - p) / h;
     return dt;
 }
@@ -63,6 +55,7 @@ std::vector<FaultEvent> BendelStrategy::generate(std::span<const Signal> signals
         std::copy(current.begin(), current.end(), std::back_inserter(result));
         std::inplace_merge(result.begin(), result.begin() + result_size, result.end());
     }
+    LOG(INFO) << "Bendel strategy generated " << result.size() << " faults";
     return result;
 }
 
@@ -72,7 +65,6 @@ std::vector<FaultEvent> BendelStrategy::generate(
 ) {
     std::vector<FaultEvent> result;
 
-    const double max_time = stream.fluence / stream.flux_phi;
     std::priority_queue<ScheduledEvent, std::vector<ScheduledEvent>, std::greater<ScheduledEvent>>
         event_queue;
 
@@ -83,11 +75,18 @@ std::vector<FaultEvent> BendelStrategy::generate(
         });
     }
 
+    const double max_time =
+        std::min(stream.fluence / stream.flux_phi, static_cast<double>(config.simulation_time));
     while (!event_queue.empty()) {
         const ScheduledEvent next = event_queue.top();
         event_queue.pop();
 
         if (next.time >= max_time) {
+            break;
+        }
+        if (config.tooManyEventsGenerated(result.size())) {
+            LOG(WARNING) << "Amount of generated fault exceeded number specified in the config. "
+                            "Stoping generation.";
             break;
         }
 

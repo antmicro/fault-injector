@@ -47,7 +47,7 @@ struct Signal {
     std::string signal_path;
     std::string cell_type;
     std::uint32_t width;
-    std::optional<double> area;
+    double area;
     std::optional<Placement> cell_placement;
     SignalType type = SignalType::UNKNOWN;
 
@@ -55,12 +55,7 @@ struct Signal {
         os << "{ .signal_path=" << signal.signal_path;
         os << ", .cell_type=" << signal.cell_type;
         os << ", .width=" << signal.width;
-        os << ", .area=";
-        if (signal.area) {
-            os << signal.area.value();
-        } else {
-            os << "nullopt";
-        }
+        os << ", .area=" << signal.area;
         os << ", .placement=";
         if (signal.area) {
             os << signal.cell_placement.value();

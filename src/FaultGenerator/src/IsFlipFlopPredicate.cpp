@@ -21,56 +21,7 @@
 #include "LogUtils.h"
 
 #include <algorithm>
-#include <unordered_set>
 #include <vector>
-
-static const std::unordered_set<std::string_view> ff_name_suffixes = {
-    // Source:
-    // https://yosyshq.readthedocs.io/projects/yosys/en/stable/cell/word_reg.html
-    "$dff",
-    "$adff",
-    "$aldff",
-    "$dffsr",
-    "$sdff",
-    "$dffe",
-    "$adffe",
-    "$aldffe",
-    "$dffsre",
-    "$sdffe",
-    "$sdffce"
-};
-
-class ByCommonNameSuffixes {
-    static constexpr char separator = '$';
-
-   public:
-    bool operator()(const Cell& cell, const Liberty& liberty) {
-        std::string_view cell_ff_type =
-            std::string_view(cell.name).substr(cell.name.find_last_of(separator));
-        bool result = ff_name_suffixes.contains(cell_ff_type);
-        VLOG(1) << "Trying ByCommonNameSuffixes predicate, for: " << cell << " with: " << result;
-        return result;
-    }
-};
-
-static const std::vector<std::string_view> ff_type_prefixes = {
-    // Source:
-    // https://yosyshq.readthedocs.io/projects/yosys/en/0.40/yosys_internals/formats/cell_library.html
-    "$_DFF",
-    "$_SDFF"
-};
-
-class ByCommonTypePrefix {
-   public:
-    bool operator()(const Cell& cell, const Liberty& liberty) {
-        bool result =
-            std::find_if(ff_type_prefixes.begin(), ff_type_prefixes.end(), [&cell](auto prefix) {
-                return cell.type.starts_with(prefix);
-            }) != ff_type_prefixes.end();
-        VLOG(1) << "Trying ByCommonTypePrefix predicate, for: " << cell << " with: " << result;
-        return result;
-    }
-};
 
 class ByKnownFFTypes {
    public:
@@ -85,15 +36,12 @@ class ByKnownFFTypes {
 
 namespace {
 const std::vector<IsFlipFlop::PredType> initialized_predicates{
-    ByCommonNameSuffixes(),
-    ByCommonTypePrefix(),
     ByKnownFFTypes(),
 };
 }  // namespace
 
 bool IsFlipFlop::check(const Cell& cell, const Liberty& liberty) {
-    auto it = std::ranges::find_if(initialized_predicates, [&cell, &liberty](const auto& pred) {
+    return std::ranges::any_of(initialized_predicates, [&cell, &liberty](const auto& pred) {
         return pred(cell, liberty);
     });
-    return it != initialized_predicates.end();
 }

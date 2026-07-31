@@ -30,6 +30,10 @@ class FaultStrategy {
         std::uint64_t num_of_events;
         std::uint32_t seed;
         std::uint64_t simulation_time;
+
+        bool tooManyEventsGenerated(std::size_t generated) const {
+            return num_of_events > 0 && generated >= num_of_events;
+        }
     };
     struct RandomGen final {
         explicit RandomGen(std::uint32_t seed) : random_generator(seed) {}

@@ -47,5 +47,4 @@ class BendelStrategy : public FaultStrategy {
 
    private:
     double eventTime(const Signal&, const BendelConfig::Stream&);
-    double cellArea(const Signal&);
 };

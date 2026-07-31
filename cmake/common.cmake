@@ -15,6 +15,7 @@ set(WORKER_SOURCES
   "${FI_E2E_WORKER_DIR}/comb_worker.v"
   "${FI_E2E_WORKER_DIR}/dff_worker.v"
 )
+set(WORKER_PDK_PATH "${FI_E2E_WORKER_DIR}/worker.lib")
 
 # Argument/default conventions used by the helpers below:
 #
@@ -226,9 +227,33 @@ function(fi_configure_file INPUT)
     set(FI_OUTPUT "${FI_SIMULATION_DIR}/config.json")
   endif()
 
+
+  set(_fi_configure_defs)
+  foreach(_fi_var NETLIST_PATH FAULT_CAMPAIGN_OUT PDK_PATH CAMPAIGN_DIR FI_E2E_JOBS)
+    if(DEFINED ${_fi_var})
+      list(APPEND _fi_configure_defs "-D${_fi_var}=${${_fi_var}}")
+    else()
+      get_directory_property(_fi_value DEFINITION ${_fi_var})
+      if(NOT "${_fi_value}" STREQUAL "")
+        list(APPEND _fi_configure_defs "-D${_fi_var}=${_fi_value}")
+      endif()
+    endif()
+  endforeach()
+
   get_filename_component(_output_dir "${FI_OUTPUT}" DIRECTORY)
-  file(MAKE_DIRECTORY "${_output_dir}")
-  configure_file("${INPUT}" "${FI_OUTPUT}" @ONLY)
+
+  add_custom_command(
+    OUTPUT "${FI_OUTPUT}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${_output_dir}"
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DFI_INPUT=${INPUT}"
+      "-DFI_OUTPUT=${FI_OUTPUT}"
+      ${_fi_configure_defs}
+      -P "${FI_E2E_SCRIPT_DIR}/configure_file_at_build.cmake"
+    DEPENDS "${INPUT}" "${FI_E2E_SCRIPT_DIR}/configure_file_at_build.cmake"
+    VERBATIM
+  )
 endfunction()
 
 # fi_add_fault_campaign(<target>
@@ -294,13 +319,23 @@ function(fi_add_fault_campaign NAME)
     list(APPEND _make_dirs "${_fault_campaign_out_dir}")
   endif()
 
+  set(_depends FaultGenerationTool ${FI_CONFIG} ${FI_DEPENDS})
+  if(DEFINED PDK_PATH AND NOT "${PDK_PATH}" STREQUAL "")
+    list(APPEND _depends "${PDK_PATH}")
+  else()
+    get_directory_property(_pdk_path DEFINITION PDK_PATH)
+    if(NOT "${_pdk_path}" STREQUAL "")
+      list(APPEND _depends "${_pdk_path}")
+    endif()
+  endif()
+
   add_custom_command(
     OUTPUT "${FI_OUTPUT}"
     COMMAND "${CMAKE_COMMAND}" -E rm -rf "${FI_OUTPUT}" "${FI_FAULT_CAMPAIGN_OUT}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory ${_make_dirs}
     COMMAND ${_command}
     COMMAND "${CMAKE_COMMAND}" -E touch "${FI_OUTPUT}"
-    DEPENDS FaultGenerationTool ${FI_CONFIG} ${FI_DEPENDS}
+    DEPENDS ${_depends}
     VERBATIM
   )
   add_custom_target("${NAME}" DEPENDS "${FI_OUTPUT}")

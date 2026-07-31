@@ -40,9 +40,9 @@ ABSL_FLAG(
     std::optional<std::uint64_t>,
     num_of_events,
     std::nullopt,
-    "Number of generated single-event effects."
+    "Number of generated single-event effects. Setting it to [0] disables this limit."
 );
-const std::uint64_t num_of_events_default = 10;
+const std::uint64_t num_of_events_default = 0;
 ABSL_FLAG(std::optional<std::uint32_t>, seed, std::nullopt, "Random seed.");
 const std::uint64_t seed_default = 42;
 ABSL_FLAG(

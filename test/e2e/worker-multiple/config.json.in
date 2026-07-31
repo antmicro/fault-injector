@@ -13,7 +13,8 @@
     "netlist_path": "@NETLIST_PATH@",
     "campaign_number": 10,
     "fault_campaign_out": "@CAMPAIGN_DIR@",
-    "thread_number": @FI_E2E_JOBS@
+    "thread_number": @FI_E2E_JOBS@,
+    "liberty_paths": [ "@PDK_PATH@" ]
   }
 }
 

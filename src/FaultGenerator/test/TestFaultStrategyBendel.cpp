@@ -28,6 +28,8 @@
 
 namespace {
 
+const double DEFAULT_CELL_AREA = 0.8925 * 1e-6;  // [um^2]
+
 std::vector<Signal> createSignals(size_t count) {
     std::vector<Signal> signals;
     signals.reserve(count);
@@ -36,7 +38,7 @@ std::vector<Signal> createSignals(size_t count) {
             {"signal_" + std::to_string(i),
              std::to_string(i),
              1024,
-             std::nullopt,
+             DEFAULT_CELL_AREA,
              std::nullopt,
              SignalType::REGISTER}
         );
@@ -55,7 +57,7 @@ TEST(BendelGenerationTest, CountsWithinTolerance) {
 
     std::vector<Signal> signals = createSignals(100);
 
-    FaultStrategy::Config config{0, 42, 0};
+    FaultStrategy::Config config{9999999, 42, 9999999};
 
     BendelConfig weibull_config{
         .streams =

@@ -7,6 +7,7 @@ set(CAMPAIGN_DIR "${WORK_DIR}/fault_campaign_out")
 set(CAMPAIGN_STAMP "${WORK_DIR}/fault_campaign_out.stamp")
 set(FAULT_CAMPAIGN_OUT "${CAMPAIGN_DIR}")
 set(TEST_DIR "${FI_E2E_WORKER_DIR}")
+set(PDK_PATH "${WORKER_PDK_PATH}")
 
 fi_add_yosys_json(fi_e2e_worker_multiple_netlist
   SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/worker_json.tcl"

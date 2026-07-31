@@ -25,8 +25,9 @@
 #include <string>
 #include <vector>
 
+const double DEFAULT_AREA = 1.0;  // this is not important to this module
 Signal createSignal(std::string signal_path, std::size_t width) {
-    return Signal(signal_path, "$dff", width, std::nullopt, std::nullopt, SignalType::REGISTER);
+    return Signal(signal_path, "$dff", width, DEFAULT_AREA, std::nullopt, SignalType::REGISTER);
 }
 
 FaultEvent createFromSignal(
