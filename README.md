@@ -18,12 +18,6 @@ To build and run unit tests:
 ctest --test-dir build
 ```
 
-To run end-to-end tests:
-
-```sh
-./bash test.sh
-```
-
 ## Usage
 To generate and simulate a fault campaign:
 
