@@ -95,6 +95,23 @@ check-formatting:
     - echo "Checking linting..."
     - run-clang-tidy-19 -p build "^$(pwd)/src/.*(\.cpp|\.h)$" -header-filter="^$(pwd)/src/.*" -warnings-as-errors='*'
 
+run-example:
+  <<: *build-setup
+  stage: test
+  variables:
+    SCALENODE_RAM: 8000
+    VERILATOR_ROOT: /ci/verilator
+  dependencies:
+    - prepare-verilator
+    - prepare-yosys
+  script:
+    - export PATH=$(pwd)/third_party/yosys:$PATH
+    - cd example
+    - bash run.sh
+  artifacts:
+    paths:
+      - example/obj_dir
+
 run-self-tests:
   <<: *build-setup
   stage: test

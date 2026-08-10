@@ -57,7 +57,7 @@ struct Signal {
         os << ", .width=" << signal.width;
         os << ", .area=" << signal.area;
         os << ", .placement=";
-        if (signal.area) {
+        if (signal.cell_placement) {
             os << signal.cell_placement.value();
         } else {
             os << "nullopt";
