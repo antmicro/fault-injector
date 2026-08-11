@@ -13,7 +13,7 @@ add_library(FaultGenerationToolLib
   OpenROADParser.cpp
   PlacementInfo.cpp
   SignalCollector.cpp
-  SignalGroupingFaultFormatter.cpp
+  FaultEventsSignalFormatter.cpp
 )
 
 target_include_directories(FaultGenerationToolLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

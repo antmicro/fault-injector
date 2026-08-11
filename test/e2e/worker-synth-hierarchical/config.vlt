@@ -14,29 +14,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#pragma once
+`verilator_config
 
-#include <span>
-#include <string_view>
-#include <vector>
-
-class Signal;
-class FaultEvent;
-
-class SignalGroupingFaultFormatter {
-    struct SignalData {
-        std::string_view path;
-        std::size_t bit_idx;
-    };
-
-    std::vector<SignalData> real_signals_cache;
-    std::span<const Signal> signals;
-
-   public:
-    SignalGroupingFaultFormatter(std::span<const Signal>);
-    FaultEvent operator()(FaultEvent) const;
-
-   private:
-    void insert(std::size_t, const Signal&);
-    void insertUngrouped(std::size_t, const Signal&);
-};
+public_flat_rw -module "worker" -var "*"
+public_flat_rw -module "comb_worker" -var "*"
+public_flat_rw -module "dff_worker" -var "*"

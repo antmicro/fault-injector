@@ -16,8 +16,8 @@
 
 #include "FaultCampaignWriter.h"
 #include "FaultEvent.h"
+#include "FaultEventsSignalFormatter.h"
 #include "Signal.h"
-#include "SignalGroupingFaultFormatter.h"
 
 #include <gtest/gtest.h>
 
@@ -26,8 +26,22 @@
 #include <vector>
 
 const double DEFAULT_AREA = 1.0;  // this is not important to this module
-Signal createSignal(std::string signal_path, std::size_t width) {
-    return Signal(signal_path, "$dff", width, DEFAULT_AREA, std::nullopt, SignalType::REGISTER);
+Signal createSignal(
+    std::string prefix_path,
+    std::string signal_name,
+    std::size_t width,
+    std::string hdlname = ""
+) {
+    return Signal(
+        std::move(prefix_path),
+        std::move(signal_name),
+        "$dff",
+        width,
+        DEFAULT_AREA,
+        std::nullopt,
+        std::move(hdlname),
+        SignalType::REGISTER
+    );
 }
 
 FaultEvent createFromSignal(
@@ -38,27 +52,33 @@ FaultEvent createFromSignal(
 ) {
     const auto& signal = signals[id];
     return FaultEvent{
-        signals.begin() + id, time, signal.signal_path, bit, FaultEventType::SINGLE_EVENT_UPSET
+        signals.begin() + id,
+        time,
+        combineSignalPath(signal.path_prefix, signal.signal_name),
+        bit,
+        FaultEventType::SINGLE_EVENT_UPSET
     };
 }
 
-TEST(SignalGroupingFaultFormatter, NormalTest) {
+TEST(FaultEventsSignalFormatter, NormalTest) {
     const std::vector<Signal> pre_synth_signals = {
-        createSignal("top.worker.counter", 32),
-        createSignal("top.worker.resp", 32),
+        createSignal("top.worker", "counter", 32),
+        createSignal("top.worker", "resp", 32),
     };
 
+    // `hdlname` format is determined in SignalCollector.
+    // See signal collector tests for expected format.
     const std::vector<Signal> post_synth_signals = {
-        createSignal("top.worker.counter[0]", 1),
-        createSignal("top.worker.counter[6]", 1),
-        createSignal("top.worker.counter[22]", 1),
-        createSignal("top.worker.counter[24]", 1),
-        createSignal("top.worker.counter[25]", 1),
-        createSignal("top.worker.resp[1]", 1),
-        createSignal("top.worker.resp[3]", 1),
-        createSignal("top.worker.resp[18]", 1),
-        createSignal("top.worker.resp[21]", 1),
-        createSignal("top.worker.resp[26]", 1),
+        createSignal("top.worker", "counter[0]", 1),
+        createSignal("top.worker", "counter[6]", 1),
+        createSignal("top.worker", "counter[22]", 1),
+        createSignal("top.worker", "counter[24]", 1),
+        createSignal("top.worker", "counter[25]", 1),
+        createSignal("top.worker", "resp[1]", 1),
+        createSignal("top.worker", "resp[3]", 1),
+        createSignal("top.worker", "resp[18]", 1),
+        createSignal("top.worker", "resp[21]", 1),
+        createSignal("top.worker", "resp[26]", 1),
     };
 
     const std::vector<FaultEvent> pre_synth_events = {
@@ -86,11 +106,13 @@ TEST(SignalGroupingFaultFormatter, NormalTest) {
         createFromSignal(post_synth_signals, 3, 10, 0),
     };
 
+    const std::string_view prefix_path = "top";
+
     FaultCampaignWriter::FaultFormatter pre_synth_formatter(
-        SignalGroupingFaultFormatter{pre_synth_signals}
+        FaultEventsSignalFormatter{prefix_path, pre_synth_signals}
     );
     FaultCampaignWriter::FaultFormatter post_synth_formatter(
-        SignalGroupingFaultFormatter{post_synth_signals}
+        FaultEventsSignalFormatter{prefix_path, post_synth_signals}
     );
 
     std::stringstream pre_synth_sstream;
@@ -102,10 +124,10 @@ TEST(SignalGroupingFaultFormatter, NormalTest) {
     ASSERT_EQ(pre_synth_sstream.str(), post_synth_sstream.str());
 };
 
-TEST(SignalGroupingFaultFormatter, BracketFalsePositives) {
+TEST(FaultEventsSignalFormatter, BracketFalsePositives) {
     const std::vector<Signal> false_positives_signals = {
-        createSignal("top.worker.counter\\[123\\]", 1),
-        createSignal("top.worker.resp\\[123\\]", 1),
+        createSignal("top.worker", "counter\\[123\\]", 1),
+        createSignal("top.worker", "resp\\[123\\]", 1),
     };
 
     const std::vector<FaultEvent> events = {
@@ -121,8 +143,10 @@ TEST(SignalGroupingFaultFormatter, BracketFalsePositives) {
         createFromSignal(false_positives_signals, 0, 10, 0),
     };
 
+    const std::string_view prefix_path = "top";
+
     FaultCampaignWriter::FaultFormatter false_positive_formatter(
-        SignalGroupingFaultFormatter{false_positives_signals}
+        FaultEventsSignalFormatter{prefix_path, false_positives_signals}
     );
     FaultCampaignWriter::FaultFormatter null_formatter([](const auto& ev) { return ev; });
 
@@ -135,23 +159,23 @@ TEST(SignalGroupingFaultFormatter, BracketFalsePositives) {
     ASSERT_EQ(false_positive_sstream.str(), null_sstream.str());
 }
 
-TEST(SignalGroupingFaultFormatter, BothKindsOfBrackets) {
+TEST(FaultEventsSignalFormatter, BothKindsOfBrackets) {
     const std::vector<Signal> pre_synth_signals = {
-        createSignal("top.worker.counter\\[123\\]", 32),
-        createSignal("top.worker.resp\\[123\\]", 32),
+        createSignal("top.worker", "counter\\[123\\]", 32),
+        createSignal("top.worker", "resp\\[123\\]", 32),
     };
 
     const std::vector<Signal> post_synth_signals = {
-        createSignal("top.worker.counter\\[123\\][0]", 1),
-        createSignal("top.worker.counter\\[123\\][6]", 1),
-        createSignal("top.worker.counter\\[123\\][22]", 1),
-        createSignal("top.worker.counter\\[123\\][24]", 1),
-        createSignal("top.worker.counter\\[123\\][25]", 1),
-        createSignal("top.worker.resp\\[123\\][1]", 1),
-        createSignal("top.worker.resp\\[123\\][3]", 1),
-        createSignal("top.worker.resp\\[123\\][18]", 1),
-        createSignal("top.worker.resp\\[123\\][21]", 1),
-        createSignal("top.worker.resp\\[123\\][26]", 1),
+        createSignal("top.worker", "counter\\[123\\][0]", 1),
+        createSignal("top.worker", "counter\\[123\\][6]", 1),
+        createSignal("top.worker", "counter\\[123\\][22]", 1),
+        createSignal("top.worker", "counter\\[123\\][24]", 1),
+        createSignal("top.worker", "counter\\[123\\][25]", 1),
+        createSignal("top.worker", "resp\\[123\\][1]", 1),
+        createSignal("top.worker", "resp\\[123\\][3]", 1),
+        createSignal("top.worker", "resp\\[123\\][18]", 1),
+        createSignal("top.worker", "resp\\[123\\][21]", 1),
+        createSignal("top.worker", "resp\\[123\\][26]", 1),
     };
 
     const std::vector<FaultEvent> pre_synth_events = {
@@ -179,11 +203,76 @@ TEST(SignalGroupingFaultFormatter, BothKindsOfBrackets) {
         createFromSignal(post_synth_signals, 3, 10, 0),
     };
 
+    const std::string_view prefix_path = "top";
+
     FaultCampaignWriter::FaultFormatter pre_synth_formatter(
-        SignalGroupingFaultFormatter{pre_synth_signals}
+        FaultEventsSignalFormatter{prefix_path, pre_synth_signals}
     );
     FaultCampaignWriter::FaultFormatter post_synth_formatter(
-        SignalGroupingFaultFormatter{post_synth_signals}
+        FaultEventsSignalFormatter{prefix_path, post_synth_signals}
+    );
+
+    std::stringstream pre_synth_sstream;
+    std::stringstream post_synth_sstream;
+
+    FaultCampaignWriter(pre_synth_formatter).write(pre_synth_sstream, pre_synth_events);
+    FaultCampaignWriter(post_synth_formatter).write(post_synth_sstream, post_synth_events);
+
+    ASSERT_EQ(pre_synth_sstream.str(), post_synth_sstream.str());
+}
+
+TEST(FaultEventsSignalFormatter, SignalsWithHdlname) {
+    // `hdlname` here will be always empty due to it being added during synthesis steps.
+    const std::vector<Signal> pre_synth_signals = {
+        createSignal("top.worker", "counter\\[123\\]", 32),
+        createSignal("top.worker", "resp", 32),
+    };
+
+    const std::vector<Signal> post_synth_signals = {
+        createSignal("top.worker", "counter\\[123\\][0]", 1, "worker counter\\[123\\]$dff"),
+        createSignal("top.worker", "counter\\[123\\][6]", 1, "worker counter\\[123\\]$dff"),
+        createSignal("top.worker", "counter\\[123\\][22]", 1, "worker counter\\[123\\]$dff"),
+        createSignal("top.worker", "counter\\[123\\][24]", 1, "worker counter\\[123\\]$dff"),
+        createSignal("top.worker", "counter\\[123\\][25]", 1),  // Intentionally empty `hdlname`.
+        createSignal("top.worker", "resp[1]", 1, "worker resp$dff"),
+        createSignal("top.worker", "resp[3]", 1, "worker resp$dff"),
+        createSignal("top.worker", "resp[18]", 1, "worker resp$dff"),
+        createSignal("top.worker", "resp[21]", 1, "worker resp$dff"),
+        createSignal("top.worker", "resp[26]", 1, "worker resp$dff"),
+    };
+
+    const std::vector<FaultEvent> pre_synth_events = {
+        createFromSignal(pre_synth_signals, 0, 1, 6),
+        createFromSignal(pre_synth_signals, 0, 2, 22),
+        createFromSignal(pre_synth_signals, 1, 4, 21),
+        createFromSignal(pre_synth_signals, 1, 4, 18),
+        createFromSignal(pre_synth_signals, 1, 6, 26),
+        createFromSignal(pre_synth_signals, 0, 6, 25),
+        createFromSignal(pre_synth_signals, 1, 8, 3),
+        createFromSignal(pre_synth_signals, 1, 8, 1),
+        createFromSignal(pre_synth_signals, 0, 8, 0),
+        createFromSignal(pre_synth_signals, 0, 10, 24),
+    };
+    const std::vector<FaultEvent> post_synth_events = {
+        createFromSignal(post_synth_signals, 1, 1, 0),
+        createFromSignal(post_synth_signals, 2, 2, 0),
+        createFromSignal(post_synth_signals, 8, 4, 0),
+        createFromSignal(post_synth_signals, 7, 4, 0),
+        createFromSignal(post_synth_signals, 9, 6, 0),
+        createFromSignal(post_synth_signals, 4, 6, 0),
+        createFromSignal(post_synth_signals, 6, 8, 0),
+        createFromSignal(post_synth_signals, 5, 8, 0),
+        createFromSignal(post_synth_signals, 0, 8, 0),
+        createFromSignal(post_synth_signals, 3, 10, 0),
+    };
+
+    const std::string_view prefix_path = "top";
+
+    FaultCampaignWriter::FaultFormatter pre_synth_formatter(
+        FaultEventsSignalFormatter{prefix_path, pre_synth_signals}
+    );
+    FaultCampaignWriter::FaultFormatter post_synth_formatter(
+        FaultEventsSignalFormatter{prefix_path, post_synth_signals}
     );
 
     std::stringstream pre_synth_sstream;

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <absl/log/check.h>
 #include <nlohmann/json.hpp>
 
 #include <string_view>
@@ -45,7 +46,10 @@ class SignalCollector {
           top_instance(top_instance),
           prefix_path(prefix_path),
           liberty(liberty),
-          placement(placement) {}
+          placement(placement) {
+        CHECK(!top_instance.empty())
+            << "Empty top instance! Use --top_instance to specify it's name.";
+    }
 
     std::vector<Signal> collectFromFile(const std::string& netlist_filepath) const;
     std::vector<Signal> collectFromJSON(const nlohmann::json& json) const;
@@ -68,7 +72,7 @@ class SignalCollector {
     void recursivelyCollectSignals(
         std::vector<Signal>& collected_signals,
         std::string_view current_path,
-        const std::vector<Module>& modules,
-        const Module& module
+        std::vector<Module>& modules,
+        Module& module
     ) const;
 };

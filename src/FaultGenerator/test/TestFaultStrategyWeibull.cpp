@@ -32,12 +32,15 @@ static std::vector<Signal> createSignals(size_t count) {
     std::vector<Signal> signals;
     signals.reserve(count);
     for (size_t i = 0; i < count; ++i) {
+        std::string signal_name = "signal_" + std::to_string(i);
         signals.push_back(
-            {"signal_" + std::to_string(i),
+            {/*prefix_path=*/"",
+             signal_name,
              std::to_string(i),
              1024,
              DEFAULT_CELL_AREA,
              std::nullopt,
+             signal_name,
              SignalType::REGISTER}
         );
     }

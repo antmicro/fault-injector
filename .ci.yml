@@ -124,7 +124,7 @@ run-self-tests:
   script:
     - export PATH=$(pwd)/third_party/yosys:$PATH
     - cmake -B build -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug
-    - cmake --build build -j
+    - cmake --build build -j $(nproc)
     - ctest --test-dir build --output-on-failure --tests-regex unit
     - ctest --test-dir build --output-on-failure --tests-regex integration
   artifacts:
@@ -145,7 +145,7 @@ run-worker-end-to-end-tests:
   script:
     - export PATH=$(pwd)/third_party/yosys:$PATH
     - cmake -B build -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug
-    - cmake --build build -j
+    - cmake --build build -j $(nproc)
     - ctest --test-dir build --output-on-failure --tests-regex e2e
   artifacts:
     paths:

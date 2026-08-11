@@ -40,7 +40,7 @@ FaultGenerationTool \
   --sig_path_prefix="top" \
   --top_module="instance" \
   --top_instance="instance_name" \
-  --netlist="netlist.json" \
+  --netlist_path="netlist.json" \
   --fault_campaign_out="fault_campaign_out.csv"
 ```
 

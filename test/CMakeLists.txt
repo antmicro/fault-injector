@@ -2,4 +2,5 @@
 
 add_subdirectory(e2e/worker-basic)
 add_subdirectory(e2e/worker-multiple)
+add_subdirectory(e2e/worker-synth-hierarchical)
 add_subdirectory(e2e/worker-synth-regression)

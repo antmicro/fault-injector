@@ -101,9 +101,9 @@ std::vector<FaultEvent> WeibullStrategy::generate(
 
         const auto& signal = signals[next.signal_id];
         result.emplace_back(FaultEvent{
-            signals.cbegin() + next.signal_id,
+            signals.begin() + next.signal_id,
             static_cast<std::uint64_t>(next.time),
-            signal.signal_path,
+            /*signal_path=*/"",
             bit_dist(gen.random_generator) % signal.width,
             faultEventType(signal.type)
         });

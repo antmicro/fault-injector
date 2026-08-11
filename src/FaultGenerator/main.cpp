@@ -16,6 +16,7 @@
 
 #include "FaultCampaignWriter.h"
 #include "FaultEvent.h"
+#include "FaultEventsSignalFormatter.h"
 #include "FaultStrategy.h"
 #include "GlobalOpts.h"
 #include "IsFlipFlopPredicate.h"
@@ -24,7 +25,7 @@
 #include "PlacementInfo.h"
 #include "Signal.h"
 #include "SignalCollector.h"
-#include "SignalGroupingFaultFormatter.h"
+#include "Utils.h"
 
 #include <filesystem>
 #include <future>
@@ -96,7 +97,8 @@ void create_directory(std::string_view path) {
 }
 
 void generate_campaigns(const GlobalOpts& opts, const std::vector<Signal>& signals) {
-    FaultCampaignWriter::FaultFormatter formatter{SignalGroupingFaultFormatter(signals)};
+    std::string prefix_path = combineSignalPath(opts.sig_path_prefix, opts.top_instance);
+    FaultCampaignWriter::FaultFormatter formatter{FaultEventsSignalFormatter(prefix_path, signals)};
     FaultCampaignWriter writer{formatter};
 
     if (opts.campaign_number == 1) {

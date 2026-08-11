@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <absl/strings/str_cat.h>
+
+#include <atomic>
 #include <cstring>
 #include <numbers>
 
@@ -32,3 +35,19 @@ struct CharSet {
 
     bool contains(char c) { return strchr(set, c); }
 };
+
+struct BracketIndices {
+    std::size_t bopen_pos;
+    std::size_t bclose_pos;
+};
+
+// Combines two path parts with a dot. Returns only `first` or `second` if the other one is empty.
+static std::string combineSignalPath(std::string_view first, std::string_view second) {
+    if (first.empty()) {
+        return std::string{second};
+    }
+    if (second.empty()) {
+        return std::string{first};
+    }
+    return absl::StrCat(first, ".", second);
+}

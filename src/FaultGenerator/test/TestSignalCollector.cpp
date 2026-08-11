@@ -112,7 +112,7 @@ TEST(SignalCollectorTests, EmptyNetlist) {
     auto empty_json = R"json({})json"_json;
     ASSERT_DEATH(
         {
-            (void)SignalCollector("", "", "", normal_liberty, normal_placement)
+            (void)SignalCollector("worker", "top", "", normal_liberty, normal_placement)
                 .collectFromJSON(empty_json);
         },
         "Malformed netlist json"
@@ -158,20 +158,16 @@ TEST(SignalCollectorTests, EmptyTopModule) {
 
 TEST(SignalCollectorTests, EmptyTopInstance) {
     const auto& json = normal_json;
-    const auto& signals =
-        SignalCollector(
-            normal_top_module, "", normal_sig_path_prefix, normal_liberty, normal_placement
-        )
-            .collectFromJSON(json);
-
-    // Check if signals are there
-    ASSERT_EQ(signals.size(), 2);
-    EXPECT_EQ(signals[0].signal_path, "top..counter");
-    EXPECT_EQ(signals[0].width, 32);
-    EXPECT_EQ(signals[0].type, SignalType::REGISTER);
-    EXPECT_EQ(signals[1].signal_path, "top..resp");
-    EXPECT_EQ(signals[1].width, 32);
-    EXPECT_EQ(signals[1].type, SignalType::REGISTER);
+    ASSERT_DEATH(
+        {
+            std::ignore =
+                SignalCollector(
+                    normal_top_module, "", normal_sig_path_prefix, normal_liberty, normal_placement
+                )
+                    .collectFromJSON(json);
+        },
+        "Empty top instance! Use --top_instance to specify it's name."
+    );
 }
 
 TEST(SignalCollectorTests, EmptySigPathPrefix) {
@@ -184,10 +180,12 @@ TEST(SignalCollectorTests, EmptySigPathPrefix) {
 
     // Check if signals are there
     ASSERT_EQ(signals.size(), 2);
-    EXPECT_EQ(signals[0].signal_path, "worker.counter");
+    EXPECT_EQ(signals[0].path_prefix, "worker");
+    EXPECT_EQ(signals[0].signal_name, "counter");
     EXPECT_EQ(signals[0].width, 32);
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
-    EXPECT_EQ(signals[1].signal_path, "worker.resp");
+    EXPECT_EQ(signals[1].path_prefix, "worker");
+    EXPECT_EQ(signals[1].signal_name, "resp");
     EXPECT_EQ(signals[1].width, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
 }
@@ -219,10 +217,12 @@ TEST(SignalCollectorTests, NormalNetlist) {
 
     // Check if signals are there
     ASSERT_EQ(signals.size(), 2);
-    EXPECT_EQ(signals[0].signal_path, "top.worker.counter");
+    EXPECT_EQ(signals[0].path_prefix, "top.worker");
+    EXPECT_EQ(signals[0].signal_name, "counter");
     EXPECT_EQ(signals[0].width, 32);
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
-    EXPECT_EQ(signals[1].signal_path, "top.worker.resp");
+    EXPECT_EQ(signals[1].path_prefix, "top.worker");
+    EXPECT_EQ(signals[1].signal_name, "resp");
     EXPECT_EQ(signals[1].width, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
 }
@@ -240,7 +240,8 @@ TEST(SignalCollectorTests, NormalNetlistWithPlacement) {
 
     // Check if signals are there
     ASSERT_EQ(signals.size(), 2);
-    EXPECT_EQ(signals[0].signal_path, "top.worker.counter");
+    EXPECT_EQ(signals[0].path_prefix, "top.worker");
+    EXPECT_EQ(signals[0].signal_name, "counter");
     EXPECT_EQ(signals[0].width, 32);
     EXPECT_EQ(signals[0].type, SignalType::REGISTER);
     ASSERT_TRUE(signals[0].area);
@@ -251,7 +252,8 @@ TEST(SignalCollectorTests, NormalNetlistWithPlacement) {
     EXPECT_EQ(signals[0].cell_placement->x, 1);
     EXPECT_EQ(signals[0].cell_placement->y, 2);
 
-    EXPECT_EQ(signals[1].signal_path, "top.worker.resp");
+    EXPECT_EQ(signals[1].path_prefix, "top.worker");
+    EXPECT_EQ(signals[1].signal_name, "resp");
     EXPECT_EQ(signals[1].width, 32);
     EXPECT_EQ(signals[1].type, SignalType::REGISTER);
     ASSERT_TRUE(signals[1].area);
@@ -261,4 +263,105 @@ TEST(SignalCollectorTests, NormalNetlistWithPlacement) {
     EXPECT_EQ(signals[1].cell_placement->height, 6);
     EXPECT_EQ(signals[1].cell_placement->x, 8);
     EXPECT_EQ(signals[1].cell_placement->y, 7);
+}
+
+auto json_with_hdlname = R"json({
+  "modules": {
+    "worker": {
+      "cells": {
+        "dff_worker0.counter[0]$_DFFE_PP_": {
+          "type": "$_DFFE_PP_",
+          "parameters": {
+          },
+          "attributes": {
+            "hdlname": "dff_worker0 counter$dff"
+          }
+        },
+        "dff_worker0.resp[0]$_DFFE_PP_": {
+          "type": "$_DFFE_PP_",
+          "parameters": {
+          },
+          "attributes": {
+            "hdlname": "dff_worker0 resp$dff"
+          }
+        },
+        "dff_worker0.resp[32:13]$_DFFE_PP_": {
+          "type": "$_DFFE_PP_",
+          "parameters": {
+          },
+          "attributes": {
+            "hdlname": "dff_worker0 resp[32:13]$dff"
+          }
+        }
+      }
+    }
+  }
+}
+)json"_json;
+const std::string_view json_with_hdlname_top_module = "worker";
+const std::string_view json_with_hdlname_top_instance = "worker";
+const std::string_view json_with_hdlname_sig_path_prefix = "top";
+const Liberty json_with_hdlname_liberty = {{LibertyInfo{
+    "test",
+    {{"$_DFFE_PP_", {.area = 10.0, .ff_info = FlipFlopInfo{}}}},
+}}};
+const PlacementInfo json_with_hdlname_placement{
+    std::nullopt,
+    {
+        CellPlacementInfo{
+            "dff_worker0.counter[0]$_DFFE_PP_",
+            "$_DFFE_PP_",
+            {
+                .width = 4,
+                .height = 3,
+                .x = 1,
+                .y = 2,
+            }
+        },
+        CellPlacementInfo{
+            "dff_worker0.resp[0]$_DFFE_PP_",
+            "$_DFFE_PP_",
+            {
+                .width = 5,
+                .height = 6,
+                .x = 8,
+                .y = 7,
+            }
+        },
+    }
+};
+
+TEST(SignalCollectorTests, NetlistWithHdlnameParsing) {
+    const auto& json = json_with_hdlname;
+    const auto& signals = SignalCollector(
+                              json_with_hdlname_top_module,
+                              json_with_hdlname_top_instance,
+                              json_with_hdlname_sig_path_prefix,
+                              json_with_hdlname_liberty,
+                              {}
+    )
+                              .collectFromJSON(json);
+
+    // Check if signals are there
+    ASSERT_EQ(signals.size(), 3);
+    EXPECT_EQ(signals[0].path_prefix, "top.worker");
+    EXPECT_EQ(signals[0].signal_name, "dff_worker0.counter[0]");
+    EXPECT_EQ(signals[0].cell_type, "$_DFFE_PP_");
+    EXPECT_EQ(signals[0].width, 1);
+    EXPECT_EQ(signals[0].hdlname, "dff_worker0 counter$dff");
+    EXPECT_EQ(signals[0].type, SignalType::REGISTER);
+
+    EXPECT_EQ(signals[1].path_prefix, "top.worker");
+    EXPECT_EQ(signals[1].signal_name, "dff_worker0.resp[0]");
+    EXPECT_EQ(signals[1].cell_type, "$_DFFE_PP_");
+    EXPECT_EQ(signals[1].width, 1);
+    EXPECT_EQ(signals[1].hdlname, "dff_worker0 resp$dff");
+    EXPECT_EQ(signals[1].type, SignalType::REGISTER);
+
+    EXPECT_EQ(signals[2].path_prefix, "top.worker");
+    EXPECT_EQ(signals[2].signal_name, "dff_worker0.resp[32:13]");
+    EXPECT_EQ(signals[2].cell_type, "$_DFFE_PP_");
+    EXPECT_EQ(signals[2].width, 1);
+    EXPECT_EQ(signals[2].hdlname, "dff_worker0 resp[32:13]$dff");
+    EXPECT_EQ(signals[2].type, SignalType::REGISTER);
 }

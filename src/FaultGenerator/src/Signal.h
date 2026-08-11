@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <optional>
 #include <ostream>
+#include <span>
 #include <string>
 
 enum class SignalType {
@@ -42,17 +43,20 @@ inline std::ostream& operator<<(std::ostream& os, const SignalType& type) {
 }
 
 struct Signal {
-    using Iterator = std::span<const Signal>::const_iterator;
+    using Iterator = std::span<const Signal>::iterator;
 
-    std::string signal_path;
+    std::string path_prefix;
+    std::string signal_name;
     std::string cell_type;
     std::uint32_t width;
     double area;
     std::optional<Placement> cell_placement;
+    std::string hdlname;
     SignalType type = SignalType::UNKNOWN;
 
     friend std::ostream& operator<<(std::ostream& os, const Signal& signal) {
-        os << "{ .signal_path=" << signal.signal_path;
+        os << "{ .path_prefix=" << signal.path_prefix;
+        os << ", .signal_name=" << signal.signal_name;
         os << ", .cell_type=" << signal.cell_type;
         os << ", .width=" << signal.width;
         os << ", .area=" << signal.area;
@@ -62,6 +66,7 @@ struct Signal {
         } else {
             os << "nullopt";
         }
+        os << ", .hdlname=" << signal.hdlname;
         os << ", .type=" << signal.type;
         return os << " }";
     }

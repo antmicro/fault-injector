@@ -22,6 +22,7 @@
 #include "LogUtils.h"
 #include "PlacementInfo.h"
 #include "Signal.h"
+#include "Utils.h"
 
 #include <bitset>
 #include <fstream>
@@ -29,21 +30,12 @@
 #include <sstream>
 #include <string_view>
 
-#include <absl/strings/str_cat.h>
-
 namespace {
 
 // How many bits parameter.WIDTH takes as a string
 constexpr unsigned int SIGNAL_WIDTH_PARAMETER_LENGTH = 32;
 unsigned int getSignalWidth(std::string_view width_bits) {
     return std::bitset<SIGNAL_WIDTH_PARAMETER_LENGTH>(std::string(width_bits)).to_ulong();
-}
-
-std::string combineSignalPath(std::string_view current, std::string_view next) {
-    if (current.empty()) {
-        return std::string{next};
-    }
-    return absl::StrCat(current, ".", next);
 }
 
 }  // namespace
@@ -124,6 +116,17 @@ void SignalCollector::collectCell(Module& mod, const Cell& cell, const nlohmann:
         } else {
             width = getSignalWidth(params["WIDTH"].get<std::string_view>());
         }
+        std::string hdlname;
+        if (json.contains("attributes")) {
+            const auto& attrs = json["attributes"];
+            if (attrs.contains("hdlname")) {
+                hdlname = attrs["hdlname"].get<std::string>();
+            }
+        }
+        if (hdlname.empty()) {
+            LOG(WARNING) << "Cell '" << cell.name << "' has no 'hldname' attribute. Defaulting "
+                         << "to automatically extracted path.";
+        }
 
         std::optional<double> area = liberty.getArea(cell.type);
         SEE_CHECK(area) << "Cell '" << cell.name << "' has no area in liberty";
@@ -133,7 +136,14 @@ void SignalCollector::collectCell(Module& mod, const Cell& cell, const nlohmann:
         }
 
         mod.signals.emplace_back(
-            cell.getPath(), cell.type, width, *area, cell_placement, SignalType::REGISTER
+            /*prefix_path=*/"",  // Prefix path is resolved later.
+            cell.getPath(),
+            cell.type,
+            width,
+            *area,
+            cell_placement,
+            std::move(hdlname),
+            SignalType::REGISTER
         );
         VLOG(3) << "Found signal " << mod.signals.back();
     } else {
@@ -186,22 +196,24 @@ std::vector<SignalCollector::Module> SignalCollector::collectModules(const nlohm
 void SignalCollector::recursivelyCollectSignals(
     std::vector<Signal>& collected_signals,
     std::string_view current_path,
-    const std::vector<Module>& modules,
-    const Module& mod
+    std::vector<Module>& modules,
+    Module& module
 ) const {
-    VLOG(2) << "Collecting signals for '" << mod.name << "' under prefix: " << current_path;
-    for (const Signal& signal : mod.signals) {
+    VLOG(2) << "Collecting signals for '" << module.name << "' under prefix: " << current_path;
+    for (const Signal& signal : module.signals) {
         collected_signals.emplace_back(
-            combineSignalPath(current_path, signal.signal_path),
-            signal.cell_type,
+            std::string{current_path},
+            std::move(signal.signal_name),
+            std::move(signal.cell_type),
             signal.width,
             signal.area,
             signal.cell_placement,
-            signal.type
+            std::move(signal.hdlname),
+            std::move(signal.type)
         );
     }
 
-    for (const auto& [instance_name, module_index] : mod.child_modules) {
+    for (const auto& [instance_name, module_index] : module.child_modules) {
         std::string next_path = combineSignalPath(current_path, instance_name);
         recursivelyCollectSignals(collected_signals, next_path, modules, modules[module_index]);
     }
