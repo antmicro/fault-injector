@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_library(FaultInjector STATIC FaultInjector.cpp src/Event.cpp)
+add_library(FaultInjector STATIC FaultInjector.cpp src/EventParser.cpp)
 
 target_include_directories(FaultInjector PRIVATE
-	src/
+  src/
 )
 
 # Include unit tests

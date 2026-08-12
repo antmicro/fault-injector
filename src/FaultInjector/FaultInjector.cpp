@@ -14,44 +14,39 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "Event.h"
+#include "EventParser.h"
+#include "ManagedVpiHandle.h"
+#include "Utils.h"
+
+#include "vpi_user.h"
+
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include <vector>
-#include "Event.h"
-#include "ManagedVpiHandle.h"
-
-#include "vpi_user.h"
-
-#include <algorithm>
-#include <fstream>
-#include <map>
+#include <queue>
+#include <string>
 
 namespace fin {
 
-static void fin_printf(const char* formatp, ...) {
-    va_list ap;
-    va_start(ap, formatp);
-    vpi_vprintf(const_cast<char*>(formatp), ap);
-    va_end(ap);
-}
-
 class FaultInjector {
     ManagedVpiHandle vh_value_cb;
-    std::map<std::string, ManagedVpiHandle> signals;
-    std::vector<Event> events;
-    std::size_t event_idx{0};
+    EventParser eventParser;
 
-    std::string filename;
+    std::priority_queue<Event> transient_events;
+
+    std::optional<Event> leftover_event;
 
    public:
-    FaultInjector(const std::string& input_file) : filename{input_file}, vh_value_cb{registerCb()} {
-        vpiHandle vhi = vpi_iterate(vpiModule, nullptr);
-        gatherSignals(vhi, 0);
-        readScenario();
-        (void)simulateSingleEventEffects();
+    FaultInjector(const std::string& input_file)
+        : eventParser{input_file}, vh_value_cb{registerCb()} {
+        if (eventParser.ok()) {
+            (void)simulateSingleEventEffects();
+        } else {
+            fin_fatal("%%Error: Couldn't parse '%s'\n", input_file.c_str());
+        }
     }
 
     ~FaultInjector() = default;
@@ -109,26 +104,51 @@ class FaultInjector {
         return 0;
     }
 
+    void simulateSingleEventEffect(const s_vpi_time& time, const Event& event) {
+        switch (event.type) {
+            case Event::Type::SingleEventTransientUpset:
+                simulateSingleEventTransient(time, event);
+                break;
+            case Event::Type::SingleEventTransientRollback:
+                simulateSingleEventTransientRollback(time, event);
+                break;
+            case Event::Type::SingleEventUpset:
+                simulateSingleEventUpset(time, event);
+                break;
+        }
+    }
+
     PLI_UINT32 simulateSingleEventEffects() {
         auto t = getVpiTime();
-        while (event_idx < events.size()) {
-            // this is not thread safe
-            const Event& event = events.at(event_idx);
-            if (event.time > t.low) {
-                return event.time;
+
+        while (!eventParser.eof()) {
+            if (!leftover_event) {
+                leftover_event = eventParser.parse();
+                if (!leftover_event) {
+                    continue;
+                }
             }
-            switch (event.type) {
-                case Event::Type::SingleEventTransientUpset:
-                    simulateSingleEventTransient(t, event);
-                    break;
-                case Event::Type::SingleEventTransientRollback:
-                    simulateSingleEventTransientRollback(t, event);
-                    break;
-                case Event::Type::SingleEventUpset:
-                    simulateSingleEventUpset(t, event);
-                    break;
+
+            if (transient_events.empty() || transient_events.top().time > leftover_event->time) {
+                if (leftover_event->time > t.low) {
+                    return leftover_event->time;
+                }
+                simulateSingleEventEffect(t, *leftover_event);
+                leftover_event.reset();
+            } else {
+                if (transient_events.top().time > t.low) {
+                    return transient_events.top().time;
+                }
+                simulateSingleEventEffect(t, transient_events.top());
+                transient_events.pop();
             }
-            event_idx++;
+        }
+        while (!transient_events.empty()) {
+            if (transient_events.top().time > t.low) {
+                return transient_events.top().time;
+            }
+            simulateSingleEventEffect(t, transient_events.top());
+            transient_events.pop();
         }
         return 0;
     }
@@ -138,36 +158,35 @@ class FaultInjector {
 
         s_vpi_value vpi_value{};
         vpi_value.format = vpiIntVal;
-        vpi_get_value(event.vpi_handle, &vpi_value);
+        vpi_get_value(event.handle(), &vpi_value);
         auto transient_event = Event{
-            .vpi_handle = event.vpi_handle,
-            .sig_path = event.sig_path,
+            .signal = event.signal,
             .time = event.time + 1 /*duration of transient effect*/,
             .bit_idx = event.bit_idx,
             .type = Event::Type::SingleEventTransientRollback,
             .vpi_value = vpi_value,
         };
         fin_printf(
-            const_cast<char*>("- [@%d] SET: before flipping %d bit of %s: %d\n"),
+            const_cast<char*>("- [@%d] SET: before flipping %d bit of %.*s: %d\n"),
             time.low,
             event.bit_idx,
-            event.sig_path.c_str(),
+            (int)event.sig_path().size(),
+            event.sig_path().data(),
             vpi_value.value.integer
         );
         vpi_value.value.integer ^= 1 << event.bit_idx;
         fin_printf(
-            const_cast<char*>("- [@%d] SET: after flipping %d bit of %s: %d\n"),
+            const_cast<char*>("- [@%d] SET: after flipping %d bit of %.*s: %d\n"),
             time.low,
             event.bit_idx,
-            event.sig_path.c_str(),
+            (int)event.sig_path().size(),
+            event.sig_path().data(),
             vpi_value.value.integer
         );
-        vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiForceFlag);
+        vpi_put_value(event.handle(), &vpi_value, nullptr, vpiForceFlag);
 
         // Insert after all ops on event as insert invalidates it.
-        events.insert(
-            std::upper_bound(events.begin(), events.end(), transient_event), transient_event
-        );
+        transient_events.push(std::move(transient_event));
     }
 
     void simulateSingleEventTransientRollback(const s_vpi_time& time, const Event& event) {
@@ -176,24 +195,26 @@ class FaultInjector {
 
         s_vpi_value vpi_value{};
         vpi_value.format = vpiIntVal;
-        vpi_get_value(event.vpi_handle, &vpi_value);
+        vpi_get_value(event.handle(), &vpi_value);
 
         fin_printf(
-            const_cast<char*>("- [@%d] SET: before rollback %d bit of %s: %d\n"),
+            const_cast<char*>("- [@%d] SET: before rollback %d bit of %.*s: %d\n"),
             time.low,
             event.bit_idx,
-            event.sig_path.c_str(),
+            (int)event.sig_path().size(),
+            event.sig_path().data(),
             vpi_value.value.integer
         );
         vpi_value = event.vpi_value.value();
         fin_printf(
-            const_cast<char*>("- [@%d] SET: after rollback %d bit of %s: %d\n"),
+            const_cast<char*>("- [@%d] SET: after rollback %d bit of %.*s: %d\n"),
             time.low,
             event.bit_idx,
-            event.sig_path.c_str(),
+            (int)event.sig_path().size(),
+            event.sig_path().data(),
             vpi_value.value.integer
         );
-        vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiReleaseFlag);
+        vpi_put_value(event.handle(), &vpi_value, nullptr, vpiReleaseFlag);
     }
 
     void simulateSingleEventUpset(const s_vpi_time& time, const Event& event) {
@@ -201,52 +222,26 @@ class FaultInjector {
 
         s_vpi_value vpi_value{};
         vpi_value.format = vpiIntVal;
-        vpi_get_value(event.vpi_handle, &vpi_value);
+        vpi_get_value(event.handle(), &vpi_value);
 
         fin_printf(
-            const_cast<char*>("- [@%d] SEU: before flipping %d bit of %s: %d\n"),
+            const_cast<char*>("- [@%d] SEU: before flipping %d bit of %.*s: %d\n"),
             time.low,
             event.bit_idx,
-            event.sig_path.c_str(),
+            (int)event.sig_path().size(),
+            event.sig_path().data(),
             vpi_value.value.integer
         );
         vpi_value.value.integer ^= 1 << event.bit_idx;
         fin_printf(
-            const_cast<char*>("- [@%d] SEU: after flipping %d bit of %s: %d\n"),
+            const_cast<char*>("- [@%d] SEU: after flipping %d bit of %.*s: %d\n"),
             time.low,
             event.bit_idx,
-            event.sig_path.c_str(),
+            (int)event.sig_path().size(),
+            event.sig_path().data(),
             vpi_value.value.integer
         );
-        vpi_put_value(event.vpi_handle, &vpi_value, nullptr, vpiNoDelay);
-    }
-
-    void gatherSignals(vpiHandle it, int indent) {
-        while (ManagedVpiHandle hndl = vpi_scan(it)) {
-            const char* nm = vpi_get_str(vpiName, hndl.handle());
-            for (int i = 0; i < indent; i++) {
-                fin_printf(const_cast<char*>("\t"));
-            }
-            fin_printf(const_cast<char*>("module '%s'\n"), nm);
-
-            vpiHandle vhi = vpi_iterate(vpiReg, hndl.handle());
-            assert(vhi);
-            while (auto* vh11 = vpi_scan(vhi)) {
-                const char* fn = vpi_get_str(vpiFullName, vh11);
-                for (int i = 0; i < indent + 1; i++) {
-                    fin_printf(const_cast<char*>("\t"));
-                }
-                int vpi_size = vpi_get(vpiSize, vh11);
-                int vpi_type = vpi_get(vpiType, vh11);
-                fin_printf("reg '%s, width: %d, type: %d'\n", fn, vpi_size, vpi_type);
-
-                signals.insert({std::string{fn}, ManagedVpiHandle{vh11}});
-            }
-            vpiHandle scopeIt = vpi_iterate(vpiInternalScope, hndl.handle());
-            if (scopeIt) {
-                gatherSignals(scopeIt, indent + 1);
-            }
-        }
+        vpi_put_value(event.handle(), &vpi_value, nullptr, vpiNoDelay);
     }
 
     static s_vpi_time getVpiTime() {
@@ -254,45 +249,6 @@ class FaultInjector {
         t.type = vpiSimTime;
         vpi_get_time(0, &t);
         return t;
-    }
-
-    void readScenario() {
-        std::ifstream scenario(filename);
-        if (!scenario) {
-            std::error_code ec(errno, std::generic_category());
-            fin_printf(
-                "%%Error: Failed to open file '%s': %s\n", filename.c_str(), ec.message().c_str()
-            );
-        }
-        std::string line;
-        while (std::getline(scenario, line)) {
-            auto event = parseEvent(line);
-            if (!event) {
-                fin_printf("%%Error: Failed to parse event line: %s\n", line.c_str());
-                fin_printf("Ignoring the event\n");
-                continue;
-            }
-
-            auto it = signals.find(event->sig_path);
-            if (it == signals.end()) {
-                // "TOP." is prefix defined in sim_main.cpp,
-                // It may be a good idea to put it in some global constant somewhere
-                it = signals.find("TOP." + event->sig_path);
-                if (it == signals.end()) {
-                    fin_printf("%%Error: Unrecognized signal path: %s\n", event->sig_path.c_str());
-                    fin_printf("Ignoring the event\n");
-                    continue;
-                }
-            }
-            event->vpi_handle = it->second.handle();
-            events.push_back(std::move(*event));
-        }
-
-        if (events.empty()) {
-            fin_printf("%%Error: No events read\n");
-        }
-
-        std::stable_sort(events.begin(), events.end());
     }
 
 #define STRINGIFY_CB_CASE(_cb) \

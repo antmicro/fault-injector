@@ -1,13 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_executable(TestEventParsing
-    TestEventParsing.cpp
-)
-target_include_directories(TestEventParsing PRIVATE
-    ../src
-)
-target_link_libraries(TestEventParsing PRIVATE GTest::gtest_main FaultInjector)
-add_test(NAME unit.eventParsing COMMAND TestEventParsing)
+add_subdirectory(unit)
 
 set(WORK_DIR "${CMAKE_CURRENT_BINARY_DIR}/work")
 set(SOURCES ${WORKER_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/TestWorker.cpp)
@@ -66,3 +59,20 @@ add_test(
   NAME integration.injection.vcdFaultGoldenfile.seu
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target fi_integration_injection_seu_run --config $<CONFIG>
 )
+
+
+set(SIMULATION_DIR "${WORK_DIR}/missing_campaign_file")
+fi_add_verilated_sim(fi_integration_missing_campaign_file_sim
+  FAULT_INJECTION CAMPAIGN_FILE "non_existent.csv"
+  SOURCES ${WORKER_SOURCES}
+)
+fi_add_sim_run(fi_integration_missing_campaign_file_run
+  EXPECT_MISMATCH # TODO: Once EXPECT_REGEX is available this should be `EXPECT_REGEX Failed to open file 'non_existent.csv': No such file or directory`
+  DEPENDS fi_integration_missing_campaign_file_sim
+  WORK_DIR "${SIMULATION_DIR}"
+)
+add_test(
+  NAME integration.injection.missing_campaign_file
+  COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target fi_integration_missing_campaign_file_run --config $<CONFIG>
+)
+
