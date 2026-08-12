@@ -3,19 +3,41 @@
 include(ProcessorCount)
 
 set(FI_E2E_SCRIPT_DIR "${PROJECT_SOURCE_DIR}/test/cmake")
-set(FI_E2E_WORKER_DIR "${PROJECT_SOURCE_DIR}/test/worker")
+set(FI_E2E_SYNTH_SCRIPT "${PROJECT_SOURCE_DIR}/test/e2e/synth.tcl")
 set(FI_E2E_FAULT_INJECTOR_DIR "${PROJECT_SOURCE_DIR}/src/FaultInjector")
 set(FI_E2E_TOOLS_TARGET fi-e2e-tools)
 set(FI_E2E_SKIP_CODE 77)
 
-set(WORKER_SOURCES
-  "${FI_E2E_WORKER_DIR}/config.vlt"
-  "${FI_E2E_WORKER_DIR}/top.v"
-  "${FI_E2E_WORKER_DIR}/worker.v"
-  "${FI_E2E_WORKER_DIR}/comb_worker.v"
-  "${FI_E2E_WORKER_DIR}/dff_worker.v"
-)
-set(WORKER_PDK_PATH "${FI_E2E_WORKER_DIR}/worker.lib")
+# Cache variables
+set(ASAP7_LIBERTY_CACHE_PATH "" CACHE FILEPATH "Existing decompressed ASAP7 Liberty file to reuse for e2e tests")
+
+# Default file names
+set(FI_E2E_JSON_NETLIST_DEFAULT_FILENAME "netlist.json")
+set(FI_E2E_VERILOG_NETLIST_DEFAULT_FILENAME "netlist.v")
+set(FI_E2E_VERILATOR_OUTPUT_DIR_DEFAULT_FILENAME "obj_dir")
+set(FI_E2E_FAULTGEN_CONFIG_DEFAULT_FILENAME "config.json")
+set(FI_E2E_FAULT_CAMPAIGN_OUT_DEFAULT_FILENAME "fault_campaign_out.csv")
+set(FI_E2E_TB_TOP_DEFAULT_FILENAME "Vtop")
+set(FI_E2E_CAMPAIGN_DIR_DEFAULT_FILENAME "fault_campaign")
+set(FI_E2E_VCD_OUTPUT_PATH_DEFAULT_FILENAME "vlt_dump.vcd")
+
+
+# pdk related variables
+set(FI_E2E_ASAP7_ROOT "${PROJECT_SOURCE_DIR}/third_party/asap7")
+list(APPEND FI_E2E_ASAP7_LIBERTY_FILENAMES "asap7sc7p5t_SEQ_RVT_TT_nldm_220123.lib"
+                                   "asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib"
+                                   "asap7sc7p5t_INVBUF_RVT_TT_nldm_220122.lib"
+                                   "asap7sc7p5t_OA_RVT_TT_nldm_211120.lib"
+                                   "asap7sc7p5t_AO_RVT_TT_nldm_211120.lib")
+
+set(FI_E2E_ASAP7_LIBERTY_ARCHIVES "")
+foreach(lib_file IN LISTS FI_E2E_ASAP7_LIBERTY_FILENAMES)
+    list(APPEND FI_E2E_ASAP7_LIBERTY_ARCHIVES "${FI_E2E_ASAP7_ROOT}/LIB/NLDM/${lib_file}.7z")
+endforeach()
+foreach(lib_file IN LISTS FI_E2E_ASAP7_LIBERTY_FILENAMES)
+    list(APPEND FI_E2E_LIB_FILES "${CMAKE_BINARY_DIR}/test/pdk/${lib_file}")
+endforeach()
+set(FI_E2E_PDK_TARGET fi_e2e_pdk)
 
 # Argument/default conventions used by the helpers below:
 #
@@ -26,26 +48,36 @@ set(WORKER_PDK_PATH "${FI_E2E_WORKER_DIR}/worker.lib")
 #     2. Variable in the caller directory/function scope, e.g. ARG.
 #     3. Directory property definition for ARG.
 #   It errors if none of those sources provides a non-empty value.
-# - _fi_resolve_path_default(NAME SUBDIRECTORY FALLBACK_NAME) resolves path
+# - _fi_resolve_implicit_arg_with_default(NAME DEFAULT_FILENAME FALLBACK_DIRECTORY_ARG_NAME) resolves path
 #   arguments in this order:
 #     1. Explicit parsed argument FI_${NAME}.
 #     2. Variable ${NAME}.
 #     3. Directory property definition for ${NAME}.
-#     4. ${FALLBACK_NAME}/${SUBDIRECTORY}.
-#   When fallback is used inside a helper, it also sets ${NAME} in that helper's
-#   scope so later resolver calls in the same helper observe the same path.
+#     4. ${FALLBACK_DIRECTORY_ARG_NAME}/${DEFAULT_FILENAME}, if fallback exists.
+#     5. DEFAULT_FILENAME, if no fallback directory is supplied.
 #
 # Common variables expected by most tests:
 #   WORK_DIR         Build-tree working root for the scenario.
 #   SIMULATION_DIR  Per-run output directory. Defaults to ${WORK_DIR}/obj_dir.
-#   SOURCES         Verilog source list for Yosys netlist generation.
-#   WORKER_SOURCES  Verilator source list for worker simulations.
-#   TEST_DIR        Source fixture directory exported to Yosys scripts.
-#   NETLIST_PATH    Yosys JSON netlist output.
+#   SOURCES         Verilator source list.
+#   RTL_ROOT        Source fixture directory exported to Yosys scripts.
+#   DESIGN_TOP      Top design module exported to Yosys scripts/configs.
+#   DESIGN_FILE_LIST
+#                   Yosys input file list.
+#   JSON_NETLIST    Yosys JSON netlist output.
+#   LIB_FILES       Liberty files used by FaultGenerationTool configs.
+#   VCD_OUTPUT_PATH Path passed to Verilator for $dumpfile.
 #   FAULT_CAMPAIGN_OUT
 #                   faultergeist-gen output. Defaults to
 #                   ${SIMULATION_DIR}/fault_campaign_out.csv.
 
+
+# after _fi_default_arg variable named "${ARG_NAME}" will be holding the value
+# it is supposed to, or configuration will fail
+# 1. It starts by checking if it is already populated
+# 2. Uses value from fallback variable (if it is defined and populated)
+# 3. Uses directory_property(${ARG_NAME}) if available
+# 4. Fails
 macro(_fi_default_arg ARG_NAME FALLBACK_NAME)
   set(_fi_default_value "")
   if(DEFINED ${ARG_NAME} AND NOT "${${ARG_NAME}}" STREQUAL "")
@@ -61,37 +93,65 @@ macro(_fi_default_arg ARG_NAME FALLBACK_NAME)
   endif()
 endmacro()
 
-macro(_fi_resolve_path_default NAME SUBDIRECTORY FALLBACK_NAME)
-  set(_fi_path_arg "FI_${NAME}")
+# After _fi_resolve_implicit_arg_with_default variable "FI_${ARG_NAME}" will be holding the
+# value it is supposed to, or configuration will fail
+# 1. It starts by checking if it (FI_${ARG_NAME}) is already populated
+# 2. Uses value under ${ARG_NAME} if it is defined
+# 3. Uses directory_property(${ARG_NAME}) if available
+# 4.1. Saves value under ${FALLBACK_DIRECTORY_ARG_NAME} if is defined
+# 4.2. Saves directory_property(${FALLBACK_DIRECTORY_ARG_NAME}) if is defined
+# 5. Uses "${saved value}/${DEFAULT_FILENAME}" if step 4 saved any value and DEFAULT_FILENAME is defined
+# 6. Uses DEFAULT_FILENAME if DEFAULT_FILENAME is defined
+#
+# Use this when some path should be possible to pass implicitly through caller scope or directory properties
+macro(_fi_resolve_implicit_arg_with_default ARG_NAME DEFAULT_FILENAME FALLBACK_DIRECTORY_ARG_NAME)
+  set(_fi_path_arg "FI_${ARG_NAME}")
   set(_fi_path_value "")
   set(_fi_fallback_value "")
   if(DEFINED ${_fi_path_arg} AND NOT "${${_fi_path_arg}}" STREQUAL "")
-  elseif(DEFINED ${NAME} AND NOT "${${NAME}}" STREQUAL "")
-    set(${_fi_path_arg} "${${NAME}}")
+  elseif(DEFINED ${ARG_NAME} AND NOT "${${ARG_NAME}}" STREQUAL "")
+    set(${_fi_path_arg} "${${ARG_NAME}}")
   else()
-    get_directory_property(_fi_path_value DEFINITION ${NAME})
+    get_directory_property(_fi_path_value DEFINITION ${ARG_NAME})
     if(NOT "${_fi_path_value}" STREQUAL "")
       set(${_fi_path_arg} "${_fi_path_value}")
     else()
-      if(DEFINED ${FALLBACK_NAME} AND NOT "${${FALLBACK_NAME}}" STREQUAL "")
-        set(_fi_fallback_value "${${FALLBACK_NAME}}")
-      else()
-        get_directory_property(_fi_fallback_value DEFINITION ${FALLBACK_NAME})
+      if(NOT "${FALLBACK_DIRECTORY_ARG_NAME}" STREQUAL "")
+        if(DEFINED ${FALLBACK_DIRECTORY_ARG_NAME} AND NOT "${${FALLBACK_DIRECTORY_ARG_NAME}}" STREQUAL "")
+          set(_fi_fallback_value "${${FALLBACK_DIRECTORY_ARG_NAME}}")
+        else()
+          get_directory_property(_fi_fallback_value DEFINITION ${FALLBACK_DIRECTORY_ARG_NAME})
+        endif()
       endif()
 
-      if(NOT "${_fi_fallback_value}" STREQUAL "")
-        if("${SUBDIRECTORY}" STREQUAL "")
-          set(${NAME} "${_fi_fallback_value}")
-        else()
-          set(${NAME} "${_fi_fallback_value}/${SUBDIRECTORY}")
-        endif()
-        set(${_fi_path_arg} "${${NAME}}")
+      if(NOT "${_fi_fallback_value}" STREQUAL "" AND NOT "${DEFAULT_FILENAME}" STREQUAL "")
+        set(${_fi_path_arg} "${_fi_fallback_value}/${DEFAULT_FILENAME}")
+      elseif(NOT "${DEFAULT_FILENAME}" STREQUAL "")
+        set(${_fi_path_arg} "${DEFAULT_FILENAME}")
       else()
-        message(FATAL_ERROR "${CMAKE_CURRENT_FUNCTION} requires ${_fi_path_arg}, ${NAME}, or ${FALLBACK_NAME}")
+        message(FATAL_ERROR "${CMAKE_CURRENT_FUNCTION} requires ${_fi_path_arg}, ${ARG_NAME}, or ${FALLBACK_DIRECTORY_ARG_NAME}")
       endif()
     endif()
   endif()
 endmacro()
+
+macro(_fi_resolve_pdk_path_and_append_dependency DEPENDS_VAR)
+  foreach(lib_file IN LISTS ${FI_E2E_LIB_FILES})
+    message(WARNING "Adding ${lib_file} to command dependencies")
+    list(APPEND ${DEPENDS_VAR} "${lib_file}")
+  endforeach()
+  list(APPEND ${DEPENDS_VAR} ${FI_E2E_PDK_TARGET})
+endmacro()
+
+macro(_fi_mark_deprecated ARG)
+  if(DEFINED ${ARG})
+    message(FATAL_ERROR "Argument ${ARG} is deprecated. Don't use it in ${CMAKE_CURRENT_FUNCTION}.")
+  endif()
+endmacro()
+
+#===============================================================================
+# Interface functions
+#===============================================================================
 
 function(fi_require_e2e_tools)
   if(DEFINED VERILATOR_ROOT AND NOT VERILATOR_ROOT STREQUAL "")
@@ -105,6 +165,7 @@ function(fi_require_e2e_tools)
   endif()
 
   find_program(YOSYS_EXECUTABLE yosys)
+  find_program(SEVENZIP_EXECUTABLE NAMES 7z 7za 7zr)
 
   ProcessorCount(_processor_count)
   if(_processor_count EQUAL 0)
@@ -118,9 +179,28 @@ function(fi_require_e2e_tools)
       set(FI_E2E_TOOLS_FOUND FALSE)
     endif()
   endforeach()
+  if(ASAP7_LIBERTY_CACHE_PATH)
+    get_filename_component(_asap7_liberty_cache_path "${ASAP7_LIBERTY_CACHE_PATH}" ABSOLUTE)
+    set(ASAP7_LIBERTY_CACHE_PATH "${_asap7_liberty_cache_path}" CACHE FILEPATH "Existing decompressed ASAP7 Liberty file to reuse for e2e tests" FORCE)
+    if(NOT EXISTS "${ASAP7_LIBERTY_CACHE_PATH}")
+      message(WARNING "ASAP7_LIBERTY_CACHE_PATH does not exist: ${ASAP7_LIBERTY_CACHE_PATH}")
+      set(FI_E2E_TOOLS_FOUND FALSE)
+    endif()
+  else()
+    foreach(lib_archive IN LISTS ${FI_E2E_ASAP7_LIBERTY_ARCHIVES})
+      if(NOT EXISTS "${lib_archive}")
+        message(WARNING "ASAP7 Liberty archive ${lib_archive} not found. Clone third_party/asap7 or set ASAP7_LIBERTY_CACHE_PATH.")
+        set(FI_E2E_TOOLS_FOUND FALSE)
+      endif()
+    endforeach()
+    if(NOT SEVENZIP_EXECUTABLE OR "${SEVENZIP_EXECUTABLE}" MATCHES "-NOTFOUND$")
+      message(WARNING "7z was not found. Install 7z or set ASAP7_LIBERTY_CACHE_PATH to a decompressed .lib file.")
+      set(FI_E2E_TOOLS_FOUND FALSE)
+    endif()
+  endif()
 
   if(NOT FI_E2E_TOOLS_FOUND)
-    message(WARNING "E2E tools (Verilator/Yosys) not found. E2E tests will be skipped.")
+    message(WARNING "E2E tools not found. E2E tests will be skipped.")
 
     if(NOT TARGET ${FI_E2E_TOOLS_TARGET})
       add_custom_target(${FI_E2E_TOOLS_TARGET}
@@ -152,60 +232,100 @@ function(fi_add_ctest_scenario NAME TARGET_NAME)
   set_tests_properties("${NAME}" PROPERTIES
       LABELS "e2e;yosys;verilator"
       SKIP_RETURN_CODE ${FI_E2E_SKIP_CODE}
+      TIMEOUT 3600
   )
 endfunction()
 
 # fi_add_yosys_json(<target>
-#   [SCRIPT <path>] [OUTPUT <path>] [WORK_DIR <dir>]
-#   [TEST_DIR <dir>] [SOURCES <files...>] [ENV <VAR=value>...])
+#   [SCRIPT <path>] [WORK_DIR <dir>] [RTL_ROOT <dir>]
+#   [DESIGN_FILE_LIST <file list>] [DESIGN_TOP <module>]
+#   [SYNTH_HDL_FRONTEND <frontend>] [JSON_NETLIST <path>]
+#   [VERILOG_NETLIST <path>] [LIB_FILES <liberty>...] [ENV <VAR=value>...])
 #
 # Required, explicit or implicit:
-#   SCRIPT             Yosys Tcl script. May come from variable SCRIPT.
-#   OUTPUT             JSON netlist. May come from NETLIST_PATH.
+#   SCRIPT             Yosys Tcl script. Defaults to ${FI_E2E_SYNTH_SCRIPT}.
+#                      May come from SCRIPT.
 #   WORK_DIR           Build working directory.
-#   SOURCES            Yosys input sources. May come from SOURCES.
-#   TEST_DIR           Fixture directory exported to the script. May come from
-#                      TEST_DIR.
+#   DESIGN_FILE_LIST   Yosys input source. Specifies RTL sources. May come from DESIGN_FILE_LIST.
+#   RTL_ROOT           Fixture directory exported to the script. May come from
+#                      RTL_ROOT.
+#   DESIGN_TOP         Top design module exported to the script. May come from DESIGN_TOP.
+#
+# Deprecated:
+#   OUTPUT             Use JSON_NETLIST instead. Passing OUTPUT is an error.
+#
+# Optional/implicit:
+#   JSON_NETLIST       Defaults to ${WORK_DIR}/netlist.json.
+#   VERILOG_NETLIST    Defaults to ${WORK_DIR}/netlist.v.
+#   SYNTH_HDL_FRONTEND Exported when supplied or set in caller scope.
+#   LIB_FILES          list of paths to liberty files used for techmapping
 #
 # Build-time environment passed to Yosys:
-#   NETLIST_OUT=<OUTPUT>
-#   TEST_DIR=<TEST_DIR>
-#   SOURCES=<SOURCES>
+#   JSON_NETLIST=<JSON_NETLIST>
+#   VERILOG_NETLIST=<VERILOG_NETLIST>
+#   RTL_ROOT=<RTL_ROOT>
+#   DESIGN_FILE_LIST=<DESIGN_FILE_LIST>
+#   DESIGN_TOP=<DESIGN_TOP>
+#   SYNTH_HDL_FRONTEND=<SYNTH_HDL_FRONTEND>
 #   plus any values from ENV.
 function(fi_add_yosys_json NAME)
-  set(options)
-  set(one_value_args SCRIPT OUTPUT WORK_DIR TEST_DIR)
-  set(multi_value_args SOURCES ENV)
+  set(options NO_TECHMAP)
+  set(one_value_args SCRIPT OUTPUT WORK_DIR RTL_ROOT DESIGN_FILE_LIST DESIGN_TOP SYNTH_HDL_FRONTEND JSON_NETLIST VERILOG_NETLIST)
+  set(multi_value_args ENV LIB_FILES)
   cmake_parse_arguments("FI" "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-  _fi_default_arg(FI_SCRIPT SCRIPT)
-  _fi_default_arg(FI_OUTPUT NETLIST_PATH)
-  _fi_default_arg(FI_WORK_DIR WORK_DIR)
-  _fi_default_arg(FI_SOURCES SOURCES)
-  _fi_default_arg(FI_TEST_DIR TEST_DIR)
+  _fi_mark_deprecated(FI_OUTPUT)
 
-  get_filename_component(_output_dir "${FI_OUTPUT}" DIRECTORY)
+  _fi_resolve_implicit_arg_with_default(SCRIPT "${FI_E2E_SYNTH_SCRIPT}" "")
+  _fi_default_arg(FI_WORK_DIR WORK_DIR)
+  _fi_default_arg(FI_RTL_ROOT RTL_ROOT)
+  _fi_default_arg(FI_DESIGN_FILE_LIST DESIGN_FILE_LIST)
+  _fi_default_arg(FI_DESIGN_TOP DESIGN_TOP)
+  if(NOT FI_SYNTH_HDL_FRONTEND AND DEFINED SYNTH_HDL_FRONTEND)
+    set(FI_SYNTH_HDL_FRONTEND "${SYNTH_HDL_FRONTEND}")
+  endif()
+
+  _fi_resolve_implicit_arg_with_default(JSON_NETLIST "${FI_E2E_JSON_NETLIST_DEFAULT_FILENAME}" WORK_DIR)
+  _fi_resolve_implicit_arg_with_default(VERILOG_NETLIST "${FI_E2E_VERILOG_NETLIST_DEFAULT_FILENAME}" WORK_DIR)
+
+  set(_log_file "${FI_WORK_DIR}/${FI_DESIGN_TOP}_yosys.log")
+
+  get_filename_component(_output_dir "${FI_JSON_NETLIST}" DIRECTORY)
+  set(_depends "${FI_SCRIPT}" ${FI_DESIGN_FILE_LIST})
+
+
+  string(JOIN "\" \"" LIB_FILES_STR ${FI_E2E_LIB_FILES})
+  set(LIB_FILES_ARG "LIB_FILES=\"${LIB_FILES_STR}\"")
+  if (FI_NO_TECHMAP)
+    set(LIB_FILES_ARG "")
+  else()
+    _fi_resolve_pdk_path_and_append_dependency(_depends)
+  endif()
 
   add_custom_command(
-    OUTPUT "${FI_OUTPUT}"
+    OUTPUT "${FI_JSON_NETLIST}" "${FI_VERILOG_NETLIST}" "${_log_file}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${_output_dir}" "${FI_WORK_DIR}"
     COMMAND
       "${CMAKE_COMMAND}" -E env
-      "NETLIST_OUT=${FI_OUTPUT}"
-      "TEST_DIR=${FI_TEST_DIR}"
-      "SOURCES=${FI_SOURCES}"
+    "JSON_NETLIST=${FI_JSON_NETLIST}"
+    "VERILOG_NETLIST=${FI_VERILOG_NETLIST}"
+    "DESIGN_FILE_LIST=${FI_DESIGN_FILE_LIST}"
+    "DESIGN_TOP=${FI_DESIGN_TOP}"
+    "RTL_ROOT=${FI_RTL_ROOT}"
+    ${LIB_FILES_ARG}
+    "SYNTH_HDL_FRONTEND=${FI_SYNTH_HDL_FRONTEND}"
       ${FI_ENV}
-      "${YOSYS_EXECUTABLE}" -c "${FI_SCRIPT}"
-    DEPENDS "${FI_SCRIPT}" ${FI_SOURCES}
+    "${YOSYS_EXECUTABLE}" -q -t -d -l "${_log_file}" -c "${FI_SCRIPT}"
+    DEPENDS ${_depends}
     VERBATIM
   )
-  add_custom_target("${NAME}" DEPENDS "${FI_OUTPUT}")
+  add_custom_target("${NAME}" DEPENDS "${FI_JSON_NETLIST}" "${FI_VERILOG_NETLIST}" "${_log_file}")
   add_dependencies("${NAME}" "${FI_E2E_TOOLS_TARGET}")
 endfunction()
 
 # fi_configure_file(<input> [OUTPUT <path>] [SIMULATION_DIR <dir>])
 #
-# Configures <input> with @ONLY substitution.
+# Configures <input> at build time with @ONLY substitution on forwarded variables.
 #
 # Required:
 #   input              Template file.
@@ -215,22 +335,28 @@ endfunction()
 #                     ${SIMULATION_DIR}/config.json.
 #   SIMULATION_DIR    May be explicit, come from SIMULATION_DIR, or default to
 #                     ${WORK_DIR}/obj_dir.
+#   Forwarded variables:
+#                     DESIGN_TOP, JSON_NETLIST, NETLIST_PATH,
+#                     FAULT_CAMPAIGN_OUT, CAMPAIGN_DIR, FI_E2E_JOBS.
 function(fi_configure_file INPUT)
   set(options)
   set(one_value_args OUTPUT SIMULATION_DIR)
-  set(multi_value_args)
+  set(multi_value_args EXT_LIB_FILES)
   cmake_parse_arguments(FI "" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-  _fi_resolve_path_default(SIMULATION_DIR obj_dir WORK_DIR)
-
-  if(NOT FI_OUTPUT)
-    set(FI_OUTPUT "${FI_SIMULATION_DIR}/config.json")
-  endif()
+  _fi_resolve_implicit_arg_with_default(SIMULATION_DIR "${FI_E2E_VERILATOR_OUTPUT_DIR_DEFAULT_FILENAME}" WORK_DIR)
+  _fi_resolve_implicit_arg_with_default(OUTPUT "${FI_E2E_FAULTGEN_CONFIG_DEFAULT_FILENAME}" FI_SIMULATION_DIR)
+  _fi_resolve_implicit_arg_with_default(JSON_NETLIST "${FI_E2E_JSON_NETLIST_DEFAULT_FILENAME}" WORK_DIR)
+  _fi_default_arg(FI_EXT_LIB_FILES LIB_FILES)
 
 
   set(_fi_configure_defs)
-  foreach(_fi_var NETLIST_PATH FAULT_CAMPAIGN_OUT PDK_PATH CAMPAIGN_DIR FI_E2E_JOBS)
-    if(DEFINED ${_fi_var})
+  # Variables forwarded to configure_file_at_build.cmake for @ONLY substitution.
+  foreach(_fi_var DESIGN_TOP JSON_NETLIST NETLIST_PATH FAULT_CAMPAIGN_OUT CAMPAIGN_DIR FI_E2E_JOBS)
+    set(_fi_arg_var "FI_${_fi_var}")
+    if(DEFINED ${_fi_arg_var} AND NOT "${${_fi_arg_var}}" STREQUAL "")
+      list(APPEND _fi_configure_defs "-D${_fi_var}=${${_fi_arg_var}}")
+    elseif(DEFINED ${_fi_var})
       list(APPEND _fi_configure_defs "-D${_fi_var}=${${_fi_var}}")
     else()
       get_directory_property(_fi_value DEFINITION ${_fi_var})
@@ -240,8 +366,11 @@ function(fi_configure_file INPUT)
     endif()
   endforeach()
 
+  set(_depends "${INPUT}" "${FI_E2E_SCRIPT_DIR}/configure_file_at_build.cmake" "${FI_JSON_NETLIST}")
+
   get_filename_component(_output_dir "${FI_OUTPUT}" DIRECTORY)
 
+  string(JOIN "\", \"" LIB_FILES_STR ${FI_EXT_LIB_FILES})
   add_custom_command(
     OUTPUT "${FI_OUTPUT}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${_output_dir}"
@@ -250,8 +379,9 @@ function(fi_configure_file INPUT)
       "-DFI_INPUT=${INPUT}"
       "-DFI_OUTPUT=${FI_OUTPUT}"
       ${_fi_configure_defs}
+      -DLIB_FILES="${LIB_FILES_STR}"
       -P "${FI_E2E_SCRIPT_DIR}/configure_file_at_build.cmake"
-    DEPENDS "${INPUT}" "${FI_E2E_SCRIPT_DIR}/configure_file_at_build.cmake"
+    DEPENDS ${_depends}
     VERBATIM
   )
 endfunction()
@@ -272,23 +402,26 @@ endfunction()
 #   FAULT_CAMPAIGN_OUT
 #                     Tool output path. Defaults to
 #                     ${SIMULATION_DIR}/fault_campaign_out.csv.
-#   CONFIG/CONFIG_FILE
-#                     Config file passed as --config_file. If neither CONFIG nor
-#                     ARGS is supplied, defaults to
+#   CONFIG_FILE
+#                     Config file passed as --config_file. If neither CONFIG_FILE
+#                     nor ARGS is supplied, defaults to
 #                     ${SIMULATION_DIR}/config.json.
 #   ARGS              Direct faultergeist-gen arguments. When ARGS is
 #                     non-empty, no implicit config file is added.
 #
-# On rerun, the helper removes OUTPUT and FAULT_CAMPAIGN_OUT before invoking the
-# tool, then recreates the required directories.
+# OUTPUT may be a stamp file. When OUTPUT differs from FAULT_CAMPAIGN_OUT, the
+# campaign path is registered as a byproduct.
+#
+# On rerun, the helper removes OUTPUT and FAULT_CAMPAIGN_OUT, recreates the
+# required directories, invokes the tool, then touches OUTPUT.
 function(fi_add_fault_campaign NAME)
   set(options)
-  set(one_value_args OUTPUT CONFIG CONFIG_FILE WORK_DIR SIMULATION_DIR)
+  set(one_value_args OUTPUT CONFIG_FILE WORK_DIR SIMULATION_DIR)
   set(multi_value_args ARGS DEPENDS)
   cmake_parse_arguments(FI "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-  _fi_resolve_path_default(SIMULATION_DIR obj_dir WORK_DIR)
-  _fi_resolve_path_default(FAULT_CAMPAIGN_OUT fault_campaign_out.csv SIMULATION_DIR)
+  _fi_resolve_implicit_arg_with_default(SIMULATION_DIR "${FI_E2E_VERILATOR_OUTPUT_DIR_DEFAULT_FILENAME}" WORK_DIR)
+  _fi_resolve_implicit_arg_with_default(FAULT_CAMPAIGN_OUT "${FI_E2E_FAULT_CAMPAIGN_OUT_DEFAULT_FILENAME}" SIMULATION_DIR)
 
   if(NOT FI_OUTPUT)
     set(FI_OUTPUT "${FI_FAULT_CAMPAIGN_OUT}")
@@ -318,19 +451,17 @@ function(fi_add_fault_campaign NAME)
   if(NOT "${_fault_campaign_out_dir}" STREQUAL "")
     list(APPEND _make_dirs "${_fault_campaign_out_dir}")
   endif()
+  set(_byproducts)
+  if(NOT "${FI_OUTPUT}" STREQUAL "${FI_FAULT_CAMPAIGN_OUT}")
+    set(_byproducts BYPRODUCTS "${FI_FAULT_CAMPAIGN_OUT}")
+  endif()
 
   set(_depends faultergeist-gen ${FI_CONFIG} ${FI_DEPENDS})
-  if(DEFINED PDK_PATH AND NOT "${PDK_PATH}" STREQUAL "")
-    list(APPEND _depends "${PDK_PATH}")
-  else()
-    get_directory_property(_pdk_path DEFINITION PDK_PATH)
-    if(NOT "${_pdk_path}" STREQUAL "")
-      list(APPEND _depends "${_pdk_path}")
-    endif()
-  endif()
+  _fi_resolve_pdk_path_and_append_dependency(_depends)
 
   add_custom_command(
     OUTPUT "${FI_OUTPUT}"
+    ${_byproducts}
     COMMAND "${CMAKE_COMMAND}" -E rm -rf "${FI_OUTPUT}" "${FI_FAULT_CAMPAIGN_OUT}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory ${_make_dirs}
     COMMAND ${_command}
@@ -343,9 +474,11 @@ function(fi_add_fault_campaign NAME)
 endfunction()
 
 # fi_add_verilated_sim(<target>
-#   [FAULT_INJECTION] [CAMPAIGN_FILE <path>]
-#   [WORK_DIR <dir>] [SIMULATION_DIR <dir>]
-#   [SOURCES <files...>] [DEPENDS <deps...>])
+#   [FAULT_INJECTION] [TRACE] [NO_MAIN] [NO_BUILD] [VEER_MODE]
+#   [CAMPAIGN_FILE <path>] [WORK_DIR <dir>] [SIMULATION_DIR <dir>]
+#   [TB_TOP <name>] [VCD_OUTPUT_PATH <path>]
+#   [SOURCES <files...>] [DEPENDS <deps...>]
+#   [VERILATOR_EXTRA_ARGS <args...>])
 #
 # Builds a Verilator binary in ${SIMULATION_DIR}.
 #
@@ -353,78 +486,125 @@ endfunction()
 #   WORK_DIR          Command working directory.
 #   SIMULATION_DIR   Verilator --Mdir and output directory. Defaults to
 #                    ${WORK_DIR}/obj_dir.
-#   SOURCES           Verilator input sources. No implicit default is currently
-#                    applied by this helper; tests usually pass WORKER_SOURCES.
+#   SOURCES           Verilator input sources. May come from SOURCES.
+#   VCD_OUTPUT_PATH   Path compiled into the testbench for $dumpfile. May come
+#                     from VCD_OUTPUT_PATH. Defaults to vlt_dump.vcd.
 #
-# Fixed Verilator flags:
-#   --binary --vpi --Mdir <SIMULATION_DIR>
+# Common Verilator flags:
+#   --vpi --Mdir <SIMULATION_DIR> --prefix <TB_TOP>
 #   -CFLAGS -g
 #   -j <FI_E2E_JOBS>
+#
+# Build mode:
+#   Default uses --binary. NO_MAIN/NO_BUILD use --exe --cc --timing, optionally
+#   adding --main and/or --build. VEER_MODE implies NO_BUILD and then runs make
+#   manually.
 #
 # Fault-injection mode:
 #   FAULT_INJECTION adds faultergeist-inject.sv, links libfaultergeist-inject, defines
 #   FAULT_INJECTION_ENABLE, and sets FAULT_INJECTION_CAMPAIGN_FILE.
 #   CAMPAIGN_FILE may be explicit; otherwise it defaults to FAULT_CAMPAIGN_OUT,
 #   which defaults to ${SIMULATION_DIR}/fault_campaign_out.csv.
+#   The Verilator build depends on FAULT_CAMPAIGN_OUT.
 #
 # Trace mode:
 #   TRACE adds --trace --trace-vcd to verilator call
 #
 # Output:
-#   ${SIMULATION_DIR}/Vtop is exposed as <target>_EXECUTABLE in parent scope.
-#   A stamp file records successful Verilator completion.
+#   ${SIMULATION_DIR}/${TB_TOP} is exposed as <target>_EXECUTABLE in parent scope.
 function(fi_add_verilated_sim NAME)
-  set(options FAULT_INJECTION TRACE NO_MAIN)
-  set(one_value_args CAMPAIGN_FILE WORK_DIR SIMULATION_DIR)
-  set(multi_value_args SOURCES DEPENDS)
+  set(options FAULT_INJECTION TRACE NO_MAIN NO_BUILD VEER_MODE)
+  set(one_value_args CAMPAIGN_FILE WORK_DIR SIMULATION_DIR TB_TOP VCD_OUTPUT_PATH)
+  set(multi_value_args SOURCES DEPENDS VERILATOR_EXTRA_ARGS)
   cmake_parse_arguments(FI "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-  _fi_resolve_path_default(SIMULATION_DIR obj_dir WORK_DIR)
   _fi_default_arg(FI_WORK_DIR WORK_DIR)
-  if(NOT FI_SOURCES)
-    message(FATAL_ERROR "${CMAKE_CURRENT_FUNCTION} requires SOURCES")
-  endif()
+  _fi_default_arg(FI_SOURCES SOURCES)
+  _fi_resolve_implicit_arg_with_default(SIMULATION_DIR "${FI_E2E_VERILATOR_OUTPUT_DIR_DEFAULT_FILENAME}" WORK_DIR)
+  _fi_resolve_implicit_arg_with_default(FAULT_CAMPAIGN_OUT "${FI_E2E_FAULT_CAMPAIGN_OUT_DEFAULT_FILENAME}" SIMULATION_DIR)
+  _fi_resolve_implicit_arg_with_default(TB_TOP "${FI_E2E_TB_TOP_DEFAULT_FILENAME}" "")
+  _fi_resolve_implicit_arg_with_default(VCD_OUTPUT_PATH "${FI_E2E_VCD_OUTPUT_PATH_DEFAULT_FILENAME}" "")
 
-  set(_exe "${FI_SIMULATION_DIR}/Vtop")
+  set(_exe "${FI_SIMULATION_DIR}/${FI_TB_TOP}")
   set(_mdir "${FI_SIMULATION_DIR}")
   set(_args)
-  set(_depends ${FI_DEPENDS} ${FI_SOURCES})
+  set(_depends ${FI_DEPENDS})
   if(FI_FAULT_INJECTION)
     if(NOT FI_CAMPAIGN_FILE)
-      _fi_resolve_path_default(FAULT_CAMPAIGN_OUT fault_campaign_out.csv SIMULATION_DIR)
+      _fi_resolve_implicit_arg_with_default(FAULT_CAMPAIGN_OUT fault_campaign_out.csv SIMULATION_DIR)
       set(FI_CAMPAIGN_FILE "${FI_FAULT_CAMPAIGN_OUT}")
     endif()
+    list(APPEND _args "--public-flat-rw")
     list(APPEND _args "${FI_E2E_FAULT_INJECTOR_DIR}/faultergeist-inject.sv")
     list(APPEND _args -LDFLAGS "-L$<TARGET_FILE_DIR:faultergeist-inject> -lfaultergeist-inject")
     list(APPEND _args -DFAULT_INJECTION_ENABLE)
     list(APPEND _args "-DFAULT_INJECTION_CAMPAIGN_FILE=\"${FI_CAMPAIGN_FILE}\"")
-    list(APPEND _depends faultergeist-inject "${FI_E2E_FAULT_INJECTOR_DIR}/faultergeist-inject.sv")
+    list(APPEND _depends faultergeist-inject "${FI_E2E_FAULT_INJECTOR_DIR}/faultergeist-inject.sv" "${FI_FAULT_CAMPAIGN_OUT}")
   endif()
   if(FI_TRACE)
     list(APPEND _args --trace --trace-vcd)
   endif()
+  if(FI_VERILATOR_EXTRA_ARGS)
+    list(APPEND _args ${FI_VERILATOR_EXTRA_ARGS})
+  endif()
+  list(APPEND _args "-DVCD_OUTPUT_PATH=\"${FI_VCD_OUTPUT_PATH}\"")
+  list(APPEND _args -CFLAGS "-DVCD_OUTPUT_PATH=\\\"${FI_VCD_OUTPUT_PATH}\\\"")
 
-  if(FI_NO_MAIN)
-    set(_build_arg --build --exe --cc --timing)
-  else()
-    set(_build_arg "--binary")
+  if(FI_VEER_MODE)
+    set(FI_NO_BUILD)
   endif()
 
-  add_custom_command(
-    OUTPUT "${_exe}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${FI_SIMULATION_DIR}" "${FI_WORK_DIR}"
-    COMMAND "${CMAKE_COMMAND}" -E rm -rf "${FI_SIMULATION_DIR}/CMakeFiles" "${FI_SIMULATION_DIR}/Vtop.dir"
-    COMMAND "${CMAKE_COMMAND}" -E rm -f "${FI_SIMULATION_DIR}/Vtop" "${FI_SIMULATION_DIR}/Vtop__ALL.a" "${FI_SIMULATION_DIR}/Vtop.mk" "${FI_SIMULATION_DIR}/Vtop_classes.mk"
-    COMMAND
-      "${VERILATOR_EXECUTABLE}"
-      ${_build_arg} --vpi --Mdir "${_mdir}"
-      -CFLAGS "-g"
-      -j "${FI_E2E_JOBS}"
-      ${FI_SOURCES}
-      ${_args}
-    DEPENDS ${_depends}
-    VERBATIM
-  )
+  if(FI_NO_MAIN OR FI_NO_BUILD)
+    set(_build_arg --exe --cc --timing)
+    if(NOT FI_NO_MAIN)
+      set(_build_arg ${_build_arg} --main)
+    endif()
+    if(NOT FI_NO_BUILD)
+      set(_build_arg ${_build_arg} --build)
+    endif()
+  else()
+    set(_build_arg --binary)
+  endif()
+
+  list(APPEND _build_arg --prefix ${FI_TB_TOP})
+
+  # Special case for VeeR testing - custom step is required before building the simulation binary
+  if(FI_VEER_MODE)
+    add_custom_command(
+      OUTPUT "${_exe}"
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "${FI_SIMULATION_DIR}" "${FI_WORK_DIR}"
+      COMMAND "${CMAKE_COMMAND}" -E rm -rf "${FI_SIMULATION_DIR}/CMakeFiles" "${FI_SIMULATION_DIR}/${FI_TB_TOP}.dir"
+      COMMAND "${CMAKE_COMMAND}" -E rm -f "${FI_SIMULATION_DIR}/${FI_TB_TOP}" "${FI_SIMULATION_DIR}/${FI_TB_TOP}__ALL.a" "${FI_SIMULATION_DIR}/${FI_TB_TOP}.mk" "${FI_SIMULATION_DIR}/${FI_TB_TOP}_classes.mk"
+      COMMAND
+        "${CMAKE_COMMAND}" -E env "RV_ROOT=${RTL_ROOT}"
+        "${VERILATOR_EXECUTABLE}"
+        ${_build_arg} --vpi --Mdir "${_mdir}"
+        -CFLAGS "-g"
+        -j "${FI_E2E_JOBS}"
+        ${FI_SOURCES}
+        ${_args}
+      COMMAND cp "${RTL_ROOT}/testbench/test_tb_top.cpp" "${FI_SIMULATION_DIR}"
+      COMMAND "${CMAKE_COMMAND}" -E env "RV_ROOT=${RTL_ROOT}" make -e -C "${FI_SIMULATION_DIR}" -f "${FI_TB_TOP}.mk"
+      DEPENDS ${_depends}
+      VERBATIM
+    )
+  else()
+    add_custom_command(
+      OUTPUT "${_exe}"
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "${FI_SIMULATION_DIR}" "${FI_WORK_DIR}"
+      COMMAND "${CMAKE_COMMAND}" -E rm -rf "${FI_SIMULATION_DIR}/CMakeFiles" "${FI_SIMULATION_DIR}/${FI_TB_TOP}.dir"
+      COMMAND "${CMAKE_COMMAND}" -E rm -f "${FI_SIMULATION_DIR}/${FI_TB_TOP}" "${FI_SIMULATION_DIR}/${FI_TB_TOP}__ALL.a" "${FI_SIMULATION_DIR}/${FI_TB_TOP}.mk" "${FI_SIMULATION_DIR}/${FI_TB_TOP}_classes.mk"
+      COMMAND
+        "${VERILATOR_EXECUTABLE}"
+        ${_build_arg} --vpi --Mdir "${_mdir}" --prefix "${FI_TB_TOP}"
+        -CFLAGS "-g"
+        -j "${FI_E2E_JOBS}"
+        ${FI_SOURCES}
+        ${_args}
+      DEPENDS ${_depends}
+      VERBATIM
+    )
+  endif()
 
   add_custom_target("${NAME}" DEPENDS "${_exe}")
   add_dependencies("${NAME}" "${FI_E2E_TOOLS_TARGET}")
@@ -432,9 +612,11 @@ function(fi_add_verilated_sim NAME)
 endfunction()
 
 # fi_add_sim_run(<target>
-#   [EXPECT_MISMATCH] [EXECUTABLE <path>] [LOG <path>]
-#   [WORK_DIR <dir>] [SIMULATION_DIR <dir>]
-#   [ARGS <args...>] [DEPENDS <deps...>])
+#   [EXPECT_FAIL] [EXPECT_MISMATCH] [VEER_MODE]
+#   [EXPECT_REGEX_MATCH <regex>] [EXPECT_VCD_GOLDENFILE <file_path>]
+#   [EXECUTABLE <path>] [LOG <path>] [WORK_DIR <dir>]
+#   [SIMULATION_DIR <dir>] [VCD_OUTPUT_PATH <path>] [ARGS <args...>]
+#   [DEPENDS <deps...>])
 #
 # Runs a simulation executable through run_and_check_log.cmake.
 #
@@ -446,34 +628,54 @@ endfunction()
 # Optional/implicit:
 #   EXECUTABLE        Defaults to ${SIMULATION_DIR}/Vtop.
 #   LOG               Defaults to ${SIMULATION_DIR}/run.log.
+#   VCD_OUTPUT_PATH   VCD path produced by the simulation. Defaults to
+#                     vlt_dump.vcd.
 #   ARGS              Extra runtime arguments appended to EXECUTABLE.
-#   EXPECT_MISMATCH   Require the run output to contain "Mismatch"; without it,
-#                    "Mismatch" is treated as failure.
+#   EXPECT_FAIL       Allow the run command to fail.
+#   EXPECT_REGEX_MATCH
+#                     Require the run output to match the specified regex.
+#   EXPECT_MISMATCH   Alias for EXPECT_FAIL and EXPECT_REGEX_MATCH "Mismatch".
 #   EXPECT_VCD_GOLDENFILE <file_path>
-#                     Require the vlt_dump.vcd run output to be exactly the same
-#                     as <file_path>.
+#                     Require the run VCD output to be exactly the same as
+#                     <file_path>.
+#   VEER_MODE         Runs the simulation with VeeR testbench setup.
 #
 # The log is written by the script, but the CMake output is a .stamp file. The
 # stamp is touched only after the script succeeds, so failed runs cannot leave a
 # stale successful output just because run.log was written.
 function(fi_add_sim_run NAME)
-  set(options EXPECT_MISMATCH)
-  set(one_value_args EXECUTABLE LOG WORK_DIR SIMULATION_DIR EXPECT_VCD_GOLDENFILE)
+  set(options EXPECT_FAIL EXPECT_MISMATCH VEER_MODE)
+  set(one_value_args EXECUTABLE LOG WORK_DIR SIMULATION_DIR VCD_OUTPUT_PATH EXPECT_VCD_GOLDENFILE TB_TOP EXPECT_REGEX_MATCH)
   set(multi_value_args ARGS DEPENDS)
   cmake_parse_arguments(FI "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
   _fi_default_arg(FI_WORK_DIR WORK_DIR)
-  _fi_resolve_path_default(SIMULATION_DIR obj_dir WORK_DIR)
-  _fi_resolve_path_default(EXECUTABLE Vtop SIMULATION_DIR)
-  _fi_resolve_path_default(LOG run.log SIMULATION_DIR)
+  _fi_resolve_implicit_arg_with_default(SIMULATION_DIR "${FI_E2E_VERILATOR_OUTPUT_DIR_DEFAULT_FILENAME}" WORK_DIR)
+  _fi_resolve_implicit_arg_with_default(TB_TOP "${FI_E2E_TB_TOP_DEFAULT_FILENAME}" "")
+  _fi_resolve_implicit_arg_with_default(EXECUTABLE "${FI_TB_TOP}" SIMULATION_DIR)
+  _fi_resolve_implicit_arg_with_default(LOG run.log SIMULATION_DIR)
+  _fi_resolve_implicit_arg_with_default(VCD_OUTPUT_PATH "${FI_E2E_VCD_OUTPUT_PATH_DEFAULT_FILENAME}" "")
+
+  if(FI_EXPECT_MISMATCH)
+    set(FI_EXPECT_FAIL "YES")
+    set(FI_EXPECT_REGEX_MATCH "Mismatch")
+  endif()
 
   set(_stamp "${FI_LOG}.stamp")
   set(_args)
-  if(FI_EXPECT_MISMATCH)
-    list(APPEND _args "-DFI_EXPECT_MISMATCH=ON")
+  if(FI_EXPECT_FAIL)
+    list(APPEND _args "-DFI_EXPECT_FAIL=ON")
+  endif()
+  if(FI_EXPECT_REGEX_MATCH)
+    list(APPEND _args "-DFI_EXPECT_REGEX_MATCH=${FI_EXPECT_REGEX_MATCH}")
   endif()
   if(FI_EXPECT_VCD_GOLDENFILE)
-    set(_expect_vcd_arg "${FI_WORK_DIR}/logs/vlt_dump.vcd\\;${FI_EXPECT_VCD_GOLDENFILE}")
+    if(IS_ABSOLUTE "${FI_VCD_OUTPUT_PATH}")
+      set(_actual_vcd "${FI_VCD_OUTPUT_PATH}")
+    else()
+      set(_actual_vcd "${FI_SIMULATION_DIR}/${FI_VCD_OUTPUT_PATH}")
+    endif()
+    set(_expect_vcd_arg "${_actual_vcd}\\;${FI_EXPECT_VCD_GOLDENFILE}")
     list(APPEND _args "-DFI_EXPECT_VCD_GOLDENFILE=${_expect_vcd_arg}")
   endif()
   set(_fi_command_arg "${FI_EXECUTABLE}")
@@ -481,19 +683,37 @@ function(fi_add_sim_run NAME)
     string(APPEND _fi_command_arg ";${FI_ARGS}")
   endif()
 
-  add_custom_command(
-    OUTPUT "${_stamp}"
-    COMMAND
-      "${CMAKE_COMMAND}"
-      "-DFI_COMMAND=${_fi_command_arg}"
-      "-DFI_WORK_DIR=${FI_WORK_DIR}"
-      "-DFI_LOG=${FI_LOG}"
-      ${_args}
-      -P "${FI_E2E_SCRIPT_DIR}/run_and_check_log.cmake"
-    COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
-    DEPENDS ${FI_DEPENDS} "${FI_EXECUTABLE}"
-    VERBATIM
-  )
+  # Special case for VeeR testing - custom step is required before running the simulation binary
+  if(FI_VEER_MODE)
+    add_custom_command(
+      OUTPUT "${_stamp}"
+      COMMAND cp "${E2E_VEER_DIR}/program.hex" "${FI_WORK_DIR}"
+      COMMAND
+        "${CMAKE_COMMAND}"
+        "-DFI_COMMAND=${_fi_command_arg}"
+        "-DFI_WORK_DIR=${FI_WORK_DIR}"
+        "-DFI_LOG=${FI_LOG}"
+        ${_args}
+        -P "${FI_E2E_SCRIPT_DIR}/run_and_check_log.cmake"
+      COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
+      DEPENDS ${FI_DEPENDS} "${FI_EXECUTABLE}"
+      VERBATIM
+    )
+  else()
+    add_custom_command(
+      OUTPUT "${_stamp}"
+      COMMAND
+        "${CMAKE_COMMAND}"
+        "-DFI_COMMAND=${_fi_command_arg}"
+        "-DFI_WORK_DIR=${FI_WORK_DIR}"
+        "-DFI_LOG=${FI_LOG}"
+        ${_args}
+        -P "${FI_E2E_SCRIPT_DIR}/run_and_check_log.cmake"
+      COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
+      DEPENDS ${FI_DEPENDS} "${FI_EXECUTABLE}"
+      VERBATIM
+    )
+  endif()
   add_custom_target("${NAME}" DEPENDS "${_stamp}")
 endfunction()
 
@@ -508,7 +728,7 @@ endfunction()
 # Required, explicit or implicit:
 #   WORK_DIR            Command working directory.
 #   SIMULATION_DIR     Per-run output root. Defaults to ${WORK_DIR}/obj_dir.
-#   VERILATOR_SOURCES  Defaults from WORKER_SOURCES.
+#   VERILATOR_SOURCES  Defaults from SOURCES.
 #
 # Optional/implicit:
 #   CAMPAIGN_DIR       Defaults to existing CAMPAIGN_DIR, or
@@ -524,11 +744,11 @@ function(fi_add_multi_campaign_runs NAME)
   set(multi_value_args VERILATOR_SOURCES DEPENDS)
   cmake_parse_arguments(FI "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-  _fi_resolve_path_default(SIMULATION_DIR obj_dir WORK_DIR)
-  _fi_resolve_path_default(CAMPAIGN_DIR fault_campaign SIMULATION_DIR)
-  _fi_resolve_path_default(LOG_DIR logs SIMULATION_DIR)
+  _fi_resolve_implicit_arg_with_default(SIMULATION_DIR "${FI_E2E_VERILATOR_OUTPUT_DIR_DEFAULT_FILENAME}" WORK_DIR)
+  _fi_resolve_implicit_arg_with_default(CAMPAIGN_DIR "${FI_E2E_CAMPAIGN_DIR_DEFAULT_FILENAME}" SIMULATION_DIR)
+  _fi_resolve_implicit_arg_with_default(LOG_DIR logs SIMULATION_DIR)
   _fi_default_arg(FI_WORK_DIR WORK_DIR)
-  _fi_default_arg(FI_VERILATOR_SOURCES WORKER_SOURCES)
+  _fi_default_arg(FI_VERILATOR_SOURCES SOURCES)
 
   set(_stamp "${FI_LOG_DIR}/${NAME}.stamp")
   add_custom_command(

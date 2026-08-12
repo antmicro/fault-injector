@@ -17,6 +17,10 @@
 parameter int CYCLES = 20;
 parameter int CLOCK_PERIOD = 5;
 
+`ifndef VCD_OUTPUT_PATH
+  `error "VCD_OUTPUT_PATH must be defined during Verilator compilation"
+`endif
+
 module top;
   logic clk = 0;
   initial forever #CLOCK_PERIOD clk = !clk;
@@ -34,6 +38,12 @@ module top;
 
 `ifdef FAULT_INJECTION_ENABLE
   Faultergeist fi(`FAULT_INJECTION_CAMPAIGN_FILE);
+
+  always @(counter) begin
+    if (counter != 32'(($time + 64'(CLOCK_PERIOD)) / 64'(2 * CLOCK_PERIOD))) begin
+      $display("[%0t] Mismatch transient counter=%d", $time, counter);
+    end
+  end
 `endif
 
   worker worker (.*);
@@ -46,11 +56,11 @@ module top;
 
   initial begin
     if ($test$plusargs("trace") != 0) begin
-      $display("[%0t] Tracing to logs/vlt_dump.vcd...\n", $time);
-      $dumpfile("logs/vlt_dump.vcd");
+      $display("[%0t] Tracing to %s...\n", $time, `VCD_OUTPUT_PATH);
+      $dumpfile(`VCD_OUTPUT_PATH);
       $dumpvars();
+      $display("[%0t] Model running...\n", $time);
     end
-    $display("[%0t] Model running...\n", $time);
 
     #CYCLES $finish;
   end

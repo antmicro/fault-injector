@@ -16,13 +16,16 @@ foreach(_campaign IN LISTS _campaigns)
   math(EXPR _index "${_index} + 1")
   set(_mdir "${FI_LOG_DIR}/verilator-run-${_index}")
   set(_log "${FI_LOG_DIR}/run-${_index}.log")
+  set(_vcd "${FI_LOG_DIR}/run-${_index}.vcd")
   file(REMOVE_RECURSE "${_mdir}")
+  file(REMOVE "${_vcd}")
   file(MAKE_DIRECTORY "${_mdir}")
 
   execute_process(
     COMMAND
       "${VERILATOR_EXECUTABLE}"
       --binary --vpi --Mdir "${_mdir}"
+      --trace --trace-vcd
       -CFLAGS -g
       -j "${FI_JOBS}"
       ${FI_VERILATOR_SOURCES}
@@ -30,6 +33,7 @@ foreach(_campaign IN LISTS _campaigns)
       -LDFLAGS "-L${FI_FAULT_INJECTOR_LIB_DIR} -lfaultergeist-inject"
       -DFAULT_INJECTION_ENABLE
       "-DFAULT_INJECTION_CAMPAIGN_FILE=\"${_campaign}\""
+      "-DVCD_OUTPUT_PATH=\"${_vcd}\""
     WORKING_DIRECTORY "${FI_WORK_DIR}"
     RESULT_VARIABLE _verilator_result
     OUTPUT_VARIABLE _verilator_stdout
@@ -43,7 +47,7 @@ foreach(_campaign IN LISTS _campaigns)
   endif()
 
   execute_process(
-    COMMAND "${_mdir}/Vtop"
+    COMMAND "${_mdir}/Vtop" +trace
     WORKING_DIRECTORY "${FI_WORK_DIR}"
     RESULT_VARIABLE _sim_result
     OUTPUT_VARIABLE _sim_stdout

@@ -13,6 +13,8 @@ include(CTest)
 if(BUILD_TESTING)
   include(cmake/common.cmake)
   fi_require_e2e_tools()
+  add_subdirectory(test/worker)
+  add_subdirectory(test/veer)
 endif()
 
 FetchContent_Declare(

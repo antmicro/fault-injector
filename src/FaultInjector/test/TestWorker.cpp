@@ -1,11 +1,17 @@
 // Verilated -*- C++ -*-
 // DESCRIPTION: Verilator output: main() simulation loop, created with --main
 
+#include <filesystem>
 #include <memory>
+#include <string>
 #include "Vtop.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 #include "verilated_vpi.h"
+
+#ifndef VCD_OUTPUT_PATH
+#error "VCD_OUTPUT_PATH must be defined during Verilator compilation"
+#endif
 
 // User VPI code adds to this array to get startup main() callbacks
 extern "C" void (*vlog_startup_routines[])() VL_ATTR_WEAK;
@@ -33,8 +39,12 @@ int main(int argc, char** argv, char**) {
 
     auto tfp = std::make_unique<VerilatedVcdC>();
     topp->trace(tfp.get(), 99);  // Trace 99 levels of hierarchy
-    Verilated::mkdir("logs");
-    tfp->open("logs/vlt_dump.vcd");
+    const std::filesystem::path vcdPath{VCD_OUTPUT_PATH};
+    if (vcdPath.has_parent_path()) {
+        std::filesystem::create_directories(vcdPath.parent_path());
+    }
+    const std::string vcdPathString = vcdPath.string();
+    tfp->open(vcdPathString.c_str());
 
     // Simulate until $finish
     while (VL_LIKELY(!contextp->gotFinish())) {

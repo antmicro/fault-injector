@@ -3,7 +3,6 @@
 set(SCENARIO_TARGET fi_e2e_worker_basic_weibull)
 set(FAULT_CAMPAIGN_OUT "${WORK_DIR}/weibull_campaign.csv")
 set(SIMULATION_DIR "${WORK_DIR}/weibull")
-set(PDK_PATH "${WORKER_PDK_PATH}")
 
 fi_configure_file("${CMAKE_CURRENT_LIST_DIR}/config.json.in")
 fi_add_fault_campaign(fi_e2e_worker_basic_weibull_campaign
@@ -11,8 +10,6 @@ fi_add_fault_campaign(fi_e2e_worker_basic_weibull_campaign
 )
 fi_add_verilated_sim(fi_e2e_worker_basic_weibull_sim
   FAULT_INJECTION
-  SOURCES ${WORKER_SOURCES}
-  DEPENDS "${FAULT_CAMPAIGN_OUT}"
 )
 fi_add_sim_run(fi_e2e_worker_basic_weibull_run
   EXPECT_MISMATCH

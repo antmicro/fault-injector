@@ -1,0 +1,275 @@
+diff --git a/design/el2_veer_wrapper.sv b/design/el2_veer_wrapper.sv
+index ba718d8..cb8b1af 100644
+--- a/design/el2_veer_wrapper.sv
++++ b/design/el2_veer_wrapper.sv
+@@ -899,10 +899,6 @@ import el2_pkg::*;
+                                 );
+ 
+ `ifdef RV_LOCKSTEP_ENABLE
+-   initial begin
+-      $display("Dual Core Lockstep enabled!\n");
+-   end
+-
+    el2_veer_lockstep #(.pt(pt)) lockstep (
+                                 .clk(clk),
+ `ifdef RV_LOCKSTEP_REGFILE_ENABLE
+diff --git a/testbench/tb_top.sv b/testbench/tb_top.sv
+index 8b5fdee..13716bc 100644
+--- a/testbench/tb_top.sv
++++ b/testbench/tb_top.sv
+@@ -3356,4 +3356,8 @@ jtagdpi #(
+ `include "dasm.svi"
+ /* verilator lint_on CASEINCOMPLETE */
+ 
++`ifdef FAULT_INJECTION_ENABLE
++  Faultergeist fi(`FAULT_INJECTION_CAMPAIGN_FILE);
++`endif
++
+ endmodule
+diff --git a/testbench/test_tb_top.cpp b/testbench/test_tb_top.cpp
+index e5622a3..3a51cb8 100644
+--- a/testbench/test_tb_top.cpp
++++ b/testbench/test_tb_top.cpp
+@@ -22,7 +22,10 @@
+ #include "Vtb_top.h"
+ #include "verilated.h"
+ #include "verilated_vcd_c.h"
++#include "verilated_vpi.h"
+ 
++// User VPI code adds to this array to get startup main() callbacks
++extern "C" void (*vlog_startup_routines[])() VL_ATTR_WEAK;
+ 
+ vluint64_t main_time = 0;
+ 
+@@ -76,6 +79,12 @@ int main(int argc, char** argv) {
+ 
+   std::map<std::string, uint64_t> symbols;
+ 
++  // Hook VPI startup routines and invoke callback
++  if (vlog_startup_routines) {
++      for (auto routinep = &vlog_startup_routines[0]; *routinep; routinep++) (*routinep)();
++  }
++  VerilatedVpi::callCbs(cbStartOfSimulation);
++
+   // Setup memory signature range by looking up symbol names in the provided
+   // symbol dump file
+   for (int i=1; i<argc; ++i) {
+@@ -157,7 +166,17 @@ int main(int argc, char** argv) {
+   for (int i=0;i<6;i++) {
+     main_time += 5;
+     tb->core_clk = !tb->core_clk;
++    // VPI callbacks
++    VerilatedVpi::callTimedCbs();
++    VerilatedVpi::callCbs(cbNextSimTime);
++    VerilatedVpi::callCbs(cbAtStartOfSimTime);
++    // Evaluate model
+     tb->eval();
++    // VPI callbacks
++    VerilatedVpi::callValueCbs();
++    VerilatedVpi::callCbs(cbAtEndOfSimTime);
++    VerilatedVpi::callCbs(cbReadWriteSynch);
++    VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -172,7 +191,17 @@ int main(int argc, char** argv) {
+     while(!tb->o_cpu_halt_ack) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -182,7 +211,17 @@ int main(int argc, char** argv) {
+     while(!tb->o_cpu_halt_status) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -193,7 +232,17 @@ int main(int argc, char** argv) {
+     while(!tb->o_cpu_run_ack) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -204,7 +253,17 @@ int main(int argc, char** argv) {
+     while(tb->o_cpu_halt_status) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -216,7 +275,17 @@ int main(int argc, char** argv) {
+     while(!tb->mpc_debug_halt_ack) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -226,7 +295,17 @@ int main(int argc, char** argv) {
+     while(!tb->o_debug_mode_status) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -237,7 +316,17 @@ int main(int argc, char** argv) {
+     while(!tb->mpc_debug_run_ack) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -248,7 +337,17 @@ int main(int argc, char** argv) {
+     while(tb->o_debug_mode_status) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -267,7 +366,17 @@ int main(int argc, char** argv) {
+       for(int j=0;j<10;j++) {
+         main_time += 5;
+         tb->core_clk = !tb->core_clk;
++        // VPI callbacks
++        VerilatedVpi::callTimedCbs();
++        VerilatedVpi::callCbs(cbNextSimTime);
++        VerilatedVpi::callCbs(cbAtStartOfSimTime);
++        // Evaluate model
+         tb->eval();
++        // VPI callbacks
++        VerilatedVpi::callValueCbs();
++        VerilatedVpi::callCbs(cbAtEndOfSimTime);
++        VerilatedVpi::callCbs(cbReadWriteSynch);
++        VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -282,7 +391,17 @@ int main(int argc, char** argv) {
+     for (int i=0;i<30;i++) {
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+ #if VM_TRACE
+       tfp->dump (main_time);
+ #endif
+@@ -296,9 +415,20 @@ int main(int argc, char** argv) {
+ #endif
+       main_time += 5;
+       tb->core_clk = !tb->core_clk;
++      // VPI callbacks
++      VerilatedVpi::callTimedCbs();
++      VerilatedVpi::callCbs(cbNextSimTime);
++      VerilatedVpi::callCbs(cbAtStartOfSimTime);
++      // Evaluate model
+       tb->eval();
++      // VPI callbacks
++      VerilatedVpi::callValueCbs();
++      VerilatedVpi::callCbs(cbAtEndOfSimTime);
++      VerilatedVpi::callCbs(cbReadWriteSynch);
++      VerilatedVpi::callCbs(cbReadOnlySynch);
+   }
+   tb->final();
++  VerilatedVpi::callCbs(cbEndOfSimulation);
+ 
+ #if VM_TRACE
+   tfp->close();

@@ -75,6 +75,8 @@ cat <<EOF
 #   simulation
 # - -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\"" - flag
 #   pointing Verilator towards the file containing the campaign
+# - -DVCD_OUTPUT_PATH - path to VCD file where waveforms from the simulation
+#   will be dumped
 # ==============================================================================
 EOF
 $VERILATOR \
@@ -84,7 +86,8 @@ $VERILATOR \
     ../src/FaultInjector/faultergeist-inject.sv \
     -LDFLAGS "-L$(pwd)/build/src/FaultInjector -lfaultergeist-inject" \
     -DFAULT_INJECTION_ENABLE \
-    -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\""
+    -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\"" \
+    -DVCD_OUTPUT_PATH="\"vlt_dump.vcd\""
 
 
 cat <<EOF

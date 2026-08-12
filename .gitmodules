@@ -7,3 +7,6 @@
 [submodule "yosys-slang"]
 	path = third_party/yosys-slang
 	url = https://github.com/povik/yosys-slang.git
+[submodule "asap7sc7p5t_28"]
+	path = third_party/asap7
+	url = https://github.com/The-OpenROAD-Project/asap7sc7p5t_28.git

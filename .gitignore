@@ -1,3 +1,6 @@
+# Local user presets
+CMakeUserPresets.json
+
 # Generated files
 *.dmp
 *.log
@@ -18,7 +21,7 @@ build
 
 # Repos cloned for testing
 verilator
-
-# Synthesis artifacts
-test/veer/el2_veer_wrapper_post_synth.v
-test/veer/el2_veer_wrapper_synth.log
+third_party/Cores-VeeR-EL2/
+third_party/yosys/
+third_party/yosys-slang/
+third_party/asap7

@@ -3,14 +3,13 @@
 add_subdirectory(unit)
 
 set(WORK_DIR "${CMAKE_CURRENT_BINARY_DIR}/work")
+define_worker_testbench_vars()
 set(SOURCES ${WORKER_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/TestWorker.cpp)
-set(TEST_DIR "${FI_E2E_WORKER_DIR}")
 
 set(SIMULATION_DIR "${WORK_DIR}/baseline")
 fi_add_verilated_sim(fi_integration_injection_baseline_sim
   TRACE
   NO_MAIN
-  SOURCES ${SOURCES}
 )
 fi_add_sim_run(fi_integration_injection_baseline_run
   DEPENDS fi_integration_injection_baseline_sim
@@ -28,7 +27,6 @@ set(SIMULATION_DIR "${WORK_DIR}/set_test")
 fi_add_verilated_sim(fi_integration_injection_set_sim
   TRACE FAULT_INJECTION
   NO_MAIN
-  SOURCES ${SOURCES}
 )
 fi_add_sim_run(fi_integration_injection_set_run
   DEPENDS fi_integration_injection_set_sim
