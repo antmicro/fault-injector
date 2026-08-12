@@ -11,26 +11,28 @@ fi
 
 cat <<EOF
 # ==============================================================================
-# The following instructions demonstrate FaultGenerator tool and FaultInjector
-# plugin using "worker" core as an example.
+# The following instructions provide a demonstration of the FaultGenerator tool
+# and the FaultInjector plugin using the worker core as an example.
 # ==============================================================================
 EOF
 
 # It should be run in the directory it is in
 cd "$(dirname "$0")"
 
+
 cat <<EOF
 # ==============================================================================
-# Before anything the project must be configured and built.
+# Before the tool can be ran, the project must be configured and built.
 # ==============================================================================
 EOF
 cmake -B build -S .. -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 cmake --build build -j "$(nproc)"
 
+
 cat <<EOF
 # ==============================================================================
-# Next step is to generate list of signals to injection. We can do this using
-# yosys.
+# The next step is to generate a list of signals to inject. We can do this
+# using Yosys.
 # ==============================================================================
 EOF
 yosys <<EOF
@@ -44,33 +46,34 @@ EOF
 
 cat <<EOF
 # ==============================================================================
-# Once we have the netlist, we can proceed to execute FaultGenerationTool, to
-# generate fault campaign To do so we pass it a config file like one prepared
-# in this directory. This is where we select model to use, but also other
-# parameters for the generation.
+# Once we have the netlist, we can proceed to execute the FaultGeneration tool
+# to generate a fault campaign. To do so, we pass a config file to the
+# FaultGenerator, like the one prepared in this directory. At this point, we
+# select the desired model, as well as other parameters for fault generation.
 # ==============================================================================
 EOF
 build/src/FaultGenerator/FaultGenerationTool --config_file=config.json.in
 
+
 cat <<EOF
 # ==============================================================================
-# Next step is to prepare the simulation code. To have faults injected during
-# the simulation, we must pass verilator couple extra arguments.
-# To explain the call:
-# - '--binary', '-j $(nproc)' are normal flags you would pass to verilator. They
-#   cause verilator to generate all simulation files and build them into a 
+# The next step is to prepare the simulation code. In order to inject the
+# faults during the simulation, Verilator requires a few extra arguments.
+# Here is the explanation of what they do:
+# - '--binary', '-j $(nproc)' - normal flags typically passed to Verilator.
+#   They cause Verilator to generate all simulation files and build them into a
 #   single binary.
-# - '--vpi' '--public-flat-rw' - these are flags which enable verilator features
-#   we rely on to inject faults
-# - worker/... - these are system verilog sources, these should be replaced by
-#   ones in your design
-# - FaultInjector.sv - this is system verilog side of fault injection library
-# - '-LDFLAGS "-Lbuild/src/FaultInjector"' '-lFaultInjector' - this is c++ side
-#   of fault injection library
-# - '-DFAULT_INJECTION_ENABLE' - this flag enables fault injection in the
+# - '--vpi' '--public-flat-rw' - flags enabling the Verilator features that the
+#   fault injection relies on
+# - worker/... - SystemVerilog files which should be replaced with files from
+#   your design
+# - FaultInjector.sv - fault injection plugin adapter written in SystemVerilog
+# - '-LDFLAGS "-Lbuild/src/FaultInjector"' '-lFaultInjector' - precompiled part
+#   of the fault injection plugin
+# - '-DFAULT_INJECTION_ENABLE' - flag enabling the fault injection in the
 #   simulation
-# - -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\"" - this points
-#   verilator at where is the file containing the campaign
+# - -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\"" - flag
+#   pointing Verilator towards the file containing the campaign
 # ==============================================================================
 EOF
 $VERILATOR \
@@ -82,9 +85,11 @@ $VERILATOR \
     -DFAULT_INJECTION_ENABLE \
     -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\""
 
+
 cat <<EOF
 # ==============================================================================
-# Last thing left to run the simulation and watch how faults impact the design.
+# The last step left is to run the simulation and watch how faults impact the
+# design.
 # ==============================================================================
 EOF
 obj_dir/Vtop
