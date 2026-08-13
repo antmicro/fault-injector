@@ -365,3 +365,47 @@ TEST(SignalCollectorTests, NetlistWithHdlnameParsing) {
     EXPECT_EQ(signals[2].hdlname, "dff_worker0 resp[32:13]$dff");
     EXPECT_EQ(signals[2].type, SignalType::REGISTER);
 }
+
+// Regression test for a case where FF cells were ignored because liberty cell
+// was present in the netlist as a module.
+TEST(SignalCollectorTests, NetlistWithLibertyCellIncluded) {
+    auto json = R"({
+"modules": {
+  "my_cell": {
+    "cells": {
+    }
+  },
+  "worker": {
+    "cells": {
+      "dff_worker0.counter[0]$my_cell": {
+        "type": "my_cell",
+        "parameters": {
+        },
+        "attributes": {
+          "hdlname": "dff_worker0 counter$dff"
+        }
+      }
+    }
+  }
+}
+}
+)"_json;
+    const std::string_view top_module = "worker";
+    const std::string_view top_instance = "worker";
+    const std::string_view sig_path_prefix = "top";
+    const Liberty liberty = {{LibertyInfo{
+        "test",
+        {{"my_cell", {.area = 10.0, .ff_info = FlipFlopInfo{}}}},
+    }}};
+    const auto& signals = SignalCollector(top_module, top_instance, sig_path_prefix, liberty, {})
+                              .collectFromJSON(json);
+
+    // Check if signals is there
+    ASSERT_EQ(signals.size(), 1);
+    EXPECT_EQ(signals[0].path_prefix, "top.worker");
+    EXPECT_EQ(signals[0].signal_name, "dff_worker0.counter[0]");
+    EXPECT_EQ(signals[0].cell_type, "my_cell");
+    EXPECT_EQ(signals[0].width, 1);
+    EXPECT_EQ(signals[0].hdlname, "dff_worker0 counter$dff");
+    EXPECT_EQ(signals[0].type, SignalType::REGISTER);
+}

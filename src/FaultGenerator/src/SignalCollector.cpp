@@ -183,9 +183,8 @@ std::vector<SignalCollector::Module> SignalCollector::collectModules(const nlohm
                 LOG(INFO) << "Cell's '" << cell.name << "' is child of module '" << it->first
                           << "'";
                 mod.child_modules.emplace_back(cell_key, it->second);
-            } else {
-                collectCell(mod, cell, cell_value);
             }
+            collectCell(mod, cell, cell_value);
         }
         modules[existing_modules[mod.name]] = std::move(mod);
     }
