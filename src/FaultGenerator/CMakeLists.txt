@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
-project(FaultGenerationTool)
+project(faultergeist-gen)
 
 add_subdirectory(src)
 
 # Build exec
-add_executable(FaultGenerationTool main.cpp)
-target_link_libraries(FaultGenerationTool
+add_executable(faultergeist-gen main.cpp)
+target_link_libraries(faultergeist-gen
   PRIVATE
     FaultGenerationToolLib
     nlohmann_json::nlohmann_json

@@ -11,8 +11,8 @@ fi
 
 cat <<EOF
 # ==============================================================================
-# The following instructions provide a demonstration of the FaultGenerator tool
-# and the FaultInjector plugin using the worker core as an example.
+# The following instructions provide a demonstration of the faultergeist plugin
+# using the worker core as an example.
 # ==============================================================================
 EOF
 
@@ -46,13 +46,13 @@ EOF
 
 cat <<EOF
 # ==============================================================================
-# Once we have the netlist, we can proceed to execute the FaultGeneration tool
-# to generate a fault campaign. To do so, we pass a config file to the
-# FaultGenerator, like the one prepared in this directory. At this point, we
-# select the desired model, as well as other parameters for fault generation.
+# Once we have the netlist, we can proceed to execute the faultergeist-gen to
+# generate a fault campaign. To do so, we pass a config file, like the one
+# prepared in this directory. At this point, we select the desired model, as
+# well as other parameters for fault generation.
 # ==============================================================================
 EOF
-build/src/FaultGenerator/FaultGenerationTool --config_file=config.json.in
+build/src/FaultGenerator/faultergeist-gen --config_file=config.json.in
 
 
 cat <<EOF
@@ -67,9 +67,10 @@ cat <<EOF
 #   fault injection relies on
 # - worker/... - SystemVerilog files which should be replaced with files from
 #   your design
-# - FaultInjector.sv - fault injection plugin adapter written in SystemVerilog
-# - '-LDFLAGS "-Lbuild/src/FaultInjector"' '-lFaultInjector' - precompiled part
-#   of the fault injection plugin
+# - faultergeist-inject.sv - fault injection plugin adapter written in
+#   SystemVerilog
+# - '-LDFLAGS "-Lbuild/src/FaultInjector"' '-lfaultergeist-inject'
+#   - precompiled part of the fault injection plugin
 # - '-DFAULT_INJECTION_ENABLE' - flag enabling the fault injection in the
 #   simulation
 # - -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\"" - flag
@@ -80,8 +81,8 @@ $VERILATOR \
     --binary -j "$(nproc)" \
     --vpi --public-flat-rw \
     worker/config.vlt worker/top.v worker/worker.v worker/comb_worker.v worker/dff_worker.v \
-    ../src/FaultInjector/FaultInjector.sv \
-    -LDFLAGS "-L$(pwd)/build/src/FaultInjector -lFaultInjector" \
+    ../src/FaultInjector/faultergeist-inject.sv \
+    -LDFLAGS "-L$(pwd)/build/src/FaultInjector -lfaultergeist-inject" \
     -DFAULT_INJECTION_ENABLE \
     -DFAULT_INJECTION_CAMPAIGN_FILE="\"fault_campaign_out.csv\""
 

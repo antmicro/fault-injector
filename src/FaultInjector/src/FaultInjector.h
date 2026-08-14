@@ -17,6 +17,6 @@
 #pragma once
 
 extern "C" {
-void FaultInjectorCreate(const char* input_file);
-void FaultInjectorDestroy(void);
+void FaultergeistCreate(const char* input_file);
+void FaultergeistDestroy(void);
 }

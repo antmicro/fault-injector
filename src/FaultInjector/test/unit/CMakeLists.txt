@@ -7,5 +7,5 @@ add_executable(TestEventParsing
 target_include_directories(TestEventParsing PRIVATE
     ../../src
 )
-target_link_libraries(TestEventParsing PRIVATE GTest::gtest_main FaultInjector)
+target_link_libraries(TestEventParsing PRIVATE GTest::gtest_main faultergeist-inject)
 add_test(NAME unit.eventParsing COMMAND TestEventParsing)

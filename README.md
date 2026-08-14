@@ -1,8 +1,9 @@
-# Fault injector
+# Faultergeist
 Copyright (c) 2026 Antmicro
 
-A collection of tools, including a plugin for Verilator,
-that allow for injecting faults into a hardware design simulation.
+A fault injection framework for hardware design simulation, including a plugin
+for VPI-compatible simulators. Generates fault campaigns based on a netlist and
+injects them into a simulation via VPI.
 
 ## Setup
 To build the project, run:
@@ -36,7 +37,7 @@ EOF
 2. Emit faults.
 
 ```bash
-FaultGenerationTool \
+faultergeist-gen \
   --sig_path_prefix="top" \
   --top_module="instance" \
   --top_instance="instance_name" \
@@ -49,7 +50,7 @@ FaultGenerationTool \
 module top;
 ...
 `ifdef FAULT_INJECTION_ENABLE
-  FaultInjector fi("fault_campaign_out.csv");
+  Faultergeist fi("fault_campaign_out.csv");
 `endif
 ...
 endmodule
@@ -62,7 +63,7 @@ verilator \
     [... verilator flags ...] \
     --vpi --public-flat-rw \ # Enable VPI and expose signals for injection
     [... SV sources ...] \
-    FaultInjector.sv \ # Include FI library module
-    -LDFLAGS "-L$PATH_TO_FI_LIB_DIR -lFaultInjector" \ # Link with FI library
+    faultergeist-inject.sv \ # Include FI library module
+    -LDFLAGS "-L$PATH_TO_FI_LIB_DIR -lfaultergeist-inject" \ # Link with FI library
     -DFAULT_INJECTION_ENABLE # Enable FI
 ```

@@ -43,7 +43,7 @@ set(WORKER_PDK_PATH "${FI_E2E_WORKER_DIR}/worker.lib")
 #   TEST_DIR        Source fixture directory exported to Yosys scripts.
 #   NETLIST_PATH    Yosys JSON netlist output.
 #   FAULT_CAMPAIGN_OUT
-#                   FaultGenerationTool output. Defaults to
+#                   faultergeist-gen output. Defaults to
 #                   ${SIMULATION_DIR}/fault_campaign_out.csv.
 
 macro(_fi_default_arg ARG_NAME FALLBACK_NAME)
@@ -110,7 +110,7 @@ function(fi_require_e2e_tools)
   if(_processor_count EQUAL 0)
     set(_processor_count 1)
   endif()
-  set(FI_E2E_JOBS "${_processor_count}" CACHE STRING "Parallel jobs used by E2E Verilator/FaultGenerationTool commands")
+  set(FI_E2E_JOBS "${_processor_count}" CACHE STRING "Parallel jobs used by E2E Verilator/faultergeist-gen commands")
 
   set(FI_E2E_TOOLS_FOUND TRUE)
   foreach(_tool VERILATOR_EXECUTABLE YOSYS_EXECUTABLE)
@@ -261,7 +261,7 @@ endfunction()
 #   [WORK_DIR <dir>] [SIMULATION_DIR <dir>]
 #   [ARGS <args...>] [DEPENDS <deps...>])
 #
-# Generates a fault campaign with FaultGenerationTool.
+# Generates a fault campaign with faultergeist-gen.
 #
 # Required, explicit or implicit:
 #   WORK_DIR          Command working directory.
@@ -276,7 +276,7 @@ endfunction()
 #                     Config file passed as --config_file. If neither CONFIG nor
 #                     ARGS is supplied, defaults to
 #                     ${SIMULATION_DIR}/config.json.
-#   ARGS              Direct FaultGenerationTool arguments. When ARGS is
+#   ARGS              Direct faultergeist-gen arguments. When ARGS is
 #                     non-empty, no implicit config file is added.
 #
 # On rerun, the helper removes OUTPUT and FAULT_CAMPAIGN_OUT before invoking the
@@ -304,7 +304,7 @@ function(fi_add_fault_campaign NAME)
     _fi_default_arg(FI_WORK_DIR WORK_DIR)
   endif()
 
-  set(_command "$<TARGET_FILE:FaultGenerationTool>" ${FI_ARGS})
+  set(_command "$<TARGET_FILE:faultergeist-gen>" ${FI_ARGS})
   if(FI_CONFIG)
     list(APPEND _command "--config_file" "${FI_CONFIG}")
   endif()
@@ -319,7 +319,7 @@ function(fi_add_fault_campaign NAME)
     list(APPEND _make_dirs "${_fault_campaign_out_dir}")
   endif()
 
-  set(_depends FaultGenerationTool ${FI_CONFIG} ${FI_DEPENDS})
+  set(_depends faultergeist-gen ${FI_CONFIG} ${FI_DEPENDS})
   if(DEFINED PDK_PATH AND NOT "${PDK_PATH}" STREQUAL "")
     list(APPEND _depends "${PDK_PATH}")
   else()
@@ -362,7 +362,7 @@ endfunction()
 #   -j <FI_E2E_JOBS>
 #
 # Fault-injection mode:
-#   FAULT_INJECTION adds FaultInjector.sv, links libFaultInjector, defines
+#   FAULT_INJECTION adds faultergeist-inject.sv, links libfaultergeist-inject, defines
 #   FAULT_INJECTION_ENABLE, and sets FAULT_INJECTION_CAMPAIGN_FILE.
 #   CAMPAIGN_FILE may be explicit; otherwise it defaults to FAULT_CAMPAIGN_OUT,
 #   which defaults to ${SIMULATION_DIR}/fault_campaign_out.csv.
@@ -394,11 +394,11 @@ function(fi_add_verilated_sim NAME)
       _fi_resolve_path_default(FAULT_CAMPAIGN_OUT fault_campaign_out.csv SIMULATION_DIR)
       set(FI_CAMPAIGN_FILE "${FI_FAULT_CAMPAIGN_OUT}")
     endif()
-    list(APPEND _args "${FI_E2E_FAULT_INJECTOR_DIR}/FaultInjector.sv")
-    list(APPEND _args -LDFLAGS "-L$<TARGET_FILE_DIR:FaultInjector> -lFaultInjector")
+    list(APPEND _args "${FI_E2E_FAULT_INJECTOR_DIR}/faultergeist-inject.sv")
+    list(APPEND _args -LDFLAGS "-L$<TARGET_FILE_DIR:faultergeist-inject> -lfaultergeist-inject")
     list(APPEND _args -DFAULT_INJECTION_ENABLE)
     list(APPEND _args "-DFAULT_INJECTION_CAMPAIGN_FILE=\"${FI_CAMPAIGN_FILE}\"")
-    list(APPEND _depends FaultInjector "${FI_E2E_FAULT_INJECTOR_DIR}/FaultInjector.sv")
+    list(APPEND _depends faultergeist-inject "${FI_E2E_FAULT_INJECTOR_DIR}/faultergeist-inject.sv")
   endif()
   if(FI_TRACE)
     list(APPEND _args --trace --trace-vcd)
@@ -540,12 +540,12 @@ function(fi_add_multi_campaign_runs NAME)
       "-DFI_CAMPAIGN_DIR=${FI_CAMPAIGN_DIR}"
       "-DFI_LOG_DIR=${FI_LOG_DIR}"
       "-DFI_WORK_DIR=${FI_WORK_DIR}"
-      "-DFI_FAULT_INJECTOR_SV=${FI_E2E_FAULT_INJECTOR_DIR}/FaultInjector.sv"
-      "-DFI_FAULT_INJECTOR_LIB_DIR=$<TARGET_FILE_DIR:FaultInjector>"
+      "-DFI_FAULT_INJECTOR_SV=${FI_E2E_FAULT_INJECTOR_DIR}/faultergeist-inject.sv"
+      "-DFI_FAULT_INJECTOR_LIB_DIR=$<TARGET_FILE_DIR:faultergeist-inject>"
       "-DFI_VERILATOR_SOURCES=$<JOIN:${FI_VERILATOR_SOURCES},;>"
       -P "${FI_E2E_SCRIPT_DIR}/run_multi_campaigns.cmake"
     COMMAND "${CMAKE_COMMAND}" -E touch "${_stamp}"
-    DEPENDS FaultInjector ${FI_DEPENDS} ${FI_VERILATOR_SOURCES}
+    DEPENDS faultergeist-inject ${FI_DEPENDS} ${FI_VERILATOR_SOURCES}
     VERBATIM
   )
   add_custom_target("${NAME}" DEPENDS "${_stamp}")

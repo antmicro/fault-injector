@@ -280,13 +280,13 @@ static std::unique_ptr<fin::FaultInjector> fi;
 
 extern "C" {
 
-void FaultInjectorCreate(const char* input_file) {
-    std::printf("FaultInjector Init\n");
+void FaultergeistCreate(const char* input_file) {
+    std::printf("Faultergeist Init\n");
     assert(!fi);
     fi = std::make_unique<fin::FaultInjector>(input_file);
 }
-void FaultInjectorDestroy(void) {
-    std::printf("FaultInjector Teardown\n");
+void FaultergeistDestroy(void) {
+    std::printf("Faultergeist Teardown\n");
     assert(fi);
     fi.reset();
 }

@@ -15,12 +15,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 `ifdef FAULT_INJECTION_ENABLE
-module FaultInjector(string input_file);
-	import "DPI-C" function void FaultInjectorCreate(string input_file);
-	import "DPI-C" function void FaultInjectorDestroy();
+module Faultergeist(string input_file);
+	import "DPI-C" function void FaultergeistCreate(string input_file);
+	import "DPI-C" function void FaultergeistDestroy();
 
-	initial FaultInjectorCreate(input_file);
+	initial FaultergeistCreate(input_file);
 
-	final FaultInjectorDestroy();
+	final FaultergeistDestroy();
 endmodule
 `endif

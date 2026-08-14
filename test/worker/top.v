@@ -33,7 +33,7 @@ module top;
   wire [31:0] counter;
 
 `ifdef FAULT_INJECTION_ENABLE
-  FaultInjector fi(`FAULT_INJECTION_CAMPAIGN_FILE);
+  Faultergeist fi(`FAULT_INJECTION_CAMPAIGN_FILE);
 `endif
 
   worker worker (.*);

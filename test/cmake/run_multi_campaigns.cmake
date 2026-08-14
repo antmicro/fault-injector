@@ -27,7 +27,7 @@ foreach(_campaign IN LISTS _campaigns)
       -j "${FI_JOBS}"
       ${FI_VERILATOR_SOURCES}
       "${FI_FAULT_INJECTOR_SV}"
-      -LDFLAGS "-L${FI_FAULT_INJECTOR_LIB_DIR} -lFaultInjector"
+      -LDFLAGS "-L${FI_FAULT_INJECTOR_LIB_DIR} -lfaultergeist-inject"
       -DFAULT_INJECTION_ENABLE
       "-DFAULT_INJECTION_CAMPAIGN_FILE=\"${_campaign}\""
     WORKING_DIRECTORY "${FI_WORK_DIR}"
