@@ -18,6 +18,7 @@
 #include "FaultEvent.h"
 #include "FaultEventsSignalFormatter.h"
 #include "Signal.h"
+#include "TestUtils.h"
 
 #include <gtest/gtest.h>
 
@@ -51,13 +52,7 @@ FaultEvent createFromSignal(
     std::uint32_t bit
 ) {
     const auto& signal = signals[id];
-    return FaultEvent{
-        signals.begin() + id,
-        time,
-        combineSignalPath(signal.path_prefix, signal.signal_name),
-        bit,
-        FaultEventType::SINGLE_EVENT_UPSET
-    };
+    return FaultEvent{signals.begin() + id, time, "", bit, FaultEventType::SINGLE_EVENT_UPSET};
 }
 
 TEST(FaultEventsSignalFormatter, NormalTest) {
@@ -121,7 +116,7 @@ TEST(FaultEventsSignalFormatter, NormalTest) {
     FaultCampaignWriter(pre_synth_formatter).write(pre_synth_sstream, pre_synth_events);
     FaultCampaignWriter(post_synth_formatter).write(post_synth_sstream, post_synth_events);
 
-    ASSERT_EQ(pre_synth_sstream.str(), post_synth_sstream.str());
+    testStreams(pre_synth_sstream, post_synth_sstream);
 };
 
 TEST(FaultEventsSignalFormatter, BracketFalsePositives) {
@@ -148,7 +143,20 @@ TEST(FaultEventsSignalFormatter, BracketFalsePositives) {
     FaultCampaignWriter::FaultFormatter false_positive_formatter(
         FaultEventsSignalFormatter{prefix_path, false_positives_signals}
     );
-    FaultCampaignWriter::FaultFormatter null_formatter([](const auto& ev) { return ev; });
+    const std::vector<std::string> signal_paths = {
+        combineSignalPath(
+            false_positives_signals[0].path_prefix, false_positives_signals[0].signal_name
+        ),
+        combineSignalPath(
+            false_positives_signals[1].path_prefix, false_positives_signals[1].signal_name
+        ),
+    };
+    FaultCampaignWriter::FaultFormatter null_formatter([&false_positives_signals,
+                                                        &signal_paths](FaultEvent event) {
+        event.signal_path =
+            signal_paths[event.it - std::span<const Signal>(false_positives_signals).begin()];
+        return event;
+    });
 
     std::stringstream false_positive_sstream;
     std::stringstream null_sstream;
@@ -156,7 +164,7 @@ TEST(FaultEventsSignalFormatter, BracketFalsePositives) {
     FaultCampaignWriter(false_positive_formatter).write(false_positive_sstream, events);
     FaultCampaignWriter(null_formatter).write(null_sstream, events);
 
-    ASSERT_EQ(false_positive_sstream.str(), null_sstream.str());
+    testStreams(false_positive_sstream, null_sstream);
 }
 
 TEST(FaultEventsSignalFormatter, BothKindsOfBrackets) {
@@ -218,7 +226,7 @@ TEST(FaultEventsSignalFormatter, BothKindsOfBrackets) {
     FaultCampaignWriter(pre_synth_formatter).write(pre_synth_sstream, pre_synth_events);
     FaultCampaignWriter(post_synth_formatter).write(post_synth_sstream, post_synth_events);
 
-    ASSERT_EQ(pre_synth_sstream.str(), post_synth_sstream.str());
+    testStreams(pre_synth_sstream, post_synth_sstream);
 }
 
 TEST(FaultEventsSignalFormatter, SignalsWithHdlname) {
@@ -281,5 +289,5 @@ TEST(FaultEventsSignalFormatter, SignalsWithHdlname) {
     FaultCampaignWriter(pre_synth_formatter).write(pre_synth_sstream, pre_synth_events);
     FaultCampaignWriter(post_synth_formatter).write(post_synth_sstream, post_synth_events);
 
-    ASSERT_EQ(pre_synth_sstream.str(), post_synth_sstream.str());
+    testStreams(pre_synth_sstream, post_synth_sstream);
 }

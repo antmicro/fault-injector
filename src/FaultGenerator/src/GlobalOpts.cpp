@@ -75,6 +75,10 @@ ABSL_FLAG(
     "List of comma separated paths to liberty files."
 );
 
+std::uint32_t clampThreadNumber(std::uint32_t thread_number) {
+    return std::max(1u, thread_number);
+}
+
 void from_json(const nlohmann::json& json, FaultStrategy::Config& config) {
     if (absl::GetFlag(FLAGS_num_of_events)) {
         VLOG(2) << "Config.num_of_events set from flag";
@@ -100,8 +104,16 @@ void from_json(const nlohmann::json& json, FaultStrategy::Config& config) {
         config.simulation_time = json.value("simulation_time", simulation_time_default);
     }
 
-    VLOG(3) << "Config{ .num_of_events=" << config.num_of_events << ", .seed=" << config.seed
-            << ", .simulation_time=" << config.simulation_time << " }";
+    if (absl::GetFlag(FLAGS_thread_number)) {
+        VLOG(2) << "GlobalOpts.thread_number set from flag";
+        config.thread_number = clampThreadNumber(absl::GetFlag(FLAGS_thread_number).value());
+    } else {
+        VLOG(2) << "GlobalOpts.thread_number set from json/default";
+        config.thread_number =
+            clampThreadNumber(json.value("thread_number", thread_number_default));
+    }
+
+    VLOG(3) << "Config" << config;
 }
 
 void from_json(const nlohmann::json& json, GlobalOpts& opts) {
@@ -119,13 +131,6 @@ void from_json(const nlohmann::json& json, GlobalOpts& opts) {
         "campaign_number",
         std::stoi(absl::GetFlagReflectionHandle(FLAGS_campaign_number).DefaultValue())
     );
-    if (absl::GetFlag(FLAGS_thread_number)) {
-        VLOG(2) << "GlobalOpts.thread_number set from flag";
-        opts.thread_number = absl::GetFlag(FLAGS_thread_number).value();
-    } else {
-        VLOG(2) << "GlobalOpts.thread_number set from json/default";
-        opts.thread_number = params.value("thread_number", thread_number_default);
-    }
     opts.liberty_paths = params.value<std::vector<std::string>>("liberty_paths", {});
 
     FaultStrategy::Config config = params.get<FaultStrategy::Config>();
@@ -156,7 +161,8 @@ GlobalOpts GlobalOpts::parseCmdArgs(int argc, char** argv) {
         FaultStrategy::Config config = {
             absl::GetFlag(FLAGS_num_of_events).value_or(num_of_events_default),
             absl::GetFlag(FLAGS_seed).value_or(seed_default),
-            absl::GetFlag(FLAGS_simulation_time).value_or(simulation_time_default)
+            absl::GetFlag(FLAGS_simulation_time).value_or(simulation_time_default),
+            clampThreadNumber(absl::GetFlag(FLAGS_thread_number).value_or(thread_number_default))
         };
 
         std::uint64_t campaign_number = absl::GetFlag(FLAGS_campaign_number);
@@ -181,7 +187,6 @@ GlobalOpts GlobalOpts::parseCmdArgs(int argc, char** argv) {
             .netlist_path = absl::GetFlag(FLAGS_netlist_path),
             .fault_campaign_out = fault_campaign_out,
             .campaign_number = campaign_number,
-            .thread_number = absl::GetFlag(FLAGS_thread_number).value_or(thread_number_default),
             .strategy = FaultStrategyFactory::defaultStrategy(config),
             .liberty_paths = absl::GetFlag(FLAGS_liberty_paths),
         };

@@ -36,6 +36,7 @@
     "top_instance": "worker.dff_worker0",
     "netlist_path": "@NETLIST_PATH@",
     "fault_campaign_out": "@FAULT_CAMPAIGN_OUT@",
+    "thread_number": @FI_E2E_JOBS@,
     "liberty_paths": [ "@PDK_PATH@" ]
   }
 }

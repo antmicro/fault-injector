@@ -1,0 +1,207 @@
+// Copyright 2026 Antmicro <antmicro.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include "FaultEvent.h"
+#include "FaultStrategy.h"
+#include "LogUtils.h"
+#include "ScheduledEvent.h"
+#include "Signal.h"
+
+#include <algorithm>
+#include <cmath>
+#include <concepts>
+#include <functional>
+#include <future>
+#include <queue>
+#include <random>
+#include <vector>
+
+template <typename Generator, typename Stream>
+concept EventTimeGenerator = requires(
+    const Generator& generator,
+    const Signal& signal,
+    const Stream& stream,
+    FaultStrategy::RandomGen& random
+) {
+    { generator(signal, stream, random) } -> std::convertible_to<double>;
+};
+
+template <typename Calculator, typename Stream>
+concept MaxTimeCalculator = requires(const Calculator& calculator, const Stream& stream) {
+    { calculator(stream) } -> std::convertible_to<double>;
+};
+
+template <
+    typename Stream,
+    EventTimeGenerator<Stream> EventTimeGeneratorT,
+    MaxTimeCalculator<Stream> MaxTimeCalculatorT>
+class FaultStrategyRunner {
+    const EventTimeGeneratorT& evTimeGenerator;
+    const MaxTimeCalculatorT& maxTimeCalc;
+    const FaultStrategy::Config& config;
+    FaultStrategy::RandomGen& gen;
+    std::span<const Stream> streams;
+    std::span<const Signal> signals;
+    std::vector<double> max_times;
+
+   public:
+    explicit FaultStrategyRunner(
+        const EventTimeGeneratorT& eventTimeGenerator,
+        const MaxTimeCalculatorT& maxTimeCalc,
+        const FaultStrategy::Config& config,
+        std::span<const Stream> streams,
+        std::span<const Signal> signals,
+        FaultStrategy::RandomGen& gen
+    )
+        : evTimeGenerator(eventTimeGenerator),
+          maxTimeCalc(maxTimeCalc),
+          config(config),
+          streams(streams),
+          signals(signals),
+          gen(gen) {
+        SEE_CHECK(streams.size() > 0) << "No streams read";
+        max_times.reserve(streams.size());
+        for (std::size_t i = 0; i < streams.size(); i++) {
+            max_times.push_back(
+                std::min(static_cast<double>(config.simulation_time), maxTimeCalc(streams[i]))
+            );
+            LOG(INFO) << "Calculated Stream " << i << " max time: " << max_times[i];
+        }
+    }
+
+    std::pair<double, double> scheduleWorkTime(std::size_t worker_id) const {
+        auto max_elem = std::max_element(max_times.begin(), max_times.end());
+        double begin = *max_elem * worker_id / config.thread_number;
+        double end = *max_elem * (worker_id + 1) / config.thread_number;
+        LOG(INFO) << "Worker #" << worker_id << " [out of " << config.thread_number
+                  << "] will work on {" << begin << ", " << end << "} (max_time: " << *max_elem
+                  << ")";
+        return {begin, end};
+    }
+
+    std::vector<FaultEvent> generateInParallelByTimeSlice() const {
+        if (config.thread_number == 1) {
+            // if there is only one thread allowed, don't spawn another one
+            const auto [begin, end] = scheduleWorkTime(0);
+            return generateSingleTimeSlice(gen, begin, end);
+        }
+
+        std::vector<std::vector<FaultEvent>> partial_results{config.thread_number};
+
+        std::vector<FaultStrategy::RandomGen> worker_generators;
+        worker_generators.reserve(config.thread_number);
+        for (std::size_t i = 0; i < config.thread_number; ++i) {
+            worker_generators.emplace_back(gen.random_generator());
+        }
+
+        std::vector<std::future<std::size_t>> workers;
+        for (std::size_t i = 0; i < config.thread_number; ++i) {
+            const auto [begin, end] = scheduleWorkTime(i);
+            workers.push_back(std::async(
+                std::launch::async,
+                [this, i, begin, end, &partial_results, &worker_generators]() {
+                    partial_results[i] = generateSingleTimeSlice(worker_generators[i], begin, end);
+                    return partial_results[i].size();
+                }
+            ));
+        }
+
+        std::size_t total_events = 0;
+        for (auto& fut : workers) {
+            total_events += fut.get();
+        }
+
+        std::vector<FaultEvent> result{total_events};
+        const auto* original_ptr = result.data();
+        auto iter = result.begin();
+        for (const auto& current : partial_results) {
+            assert(original_ptr == result.data());
+            const auto result_size = result.size();
+            iter = std::copy(current.begin(), current.end(), iter);
+        }
+        return result;
+    }
+
+    std::vector<FaultEvent> generateSingleTimeSlice(
+        FaultStrategy::RandomGen& worker_gen,
+        double begin_time,
+        double end_time
+    ) const {
+        LOG(INFO) << "Weibull strategy generating on time slice from " << begin_time << " to "
+                  << end_time;
+        std::vector<FaultEvent> result;
+        std::uniform_int_distribution<std::uint32_t> int_dist;
+
+        std::priority_queue<
+            ScheduledEvent,
+            std::vector<ScheduledEvent>,
+            std::greater<ScheduledEvent>>
+            event_queue;
+
+        for (std::size_t stream_id = 0; stream_id < streams.size(); ++stream_id) {
+            for (std::size_t signal_id = 0; signal_id < signals.size(); ++signal_id) {
+                event_queue.emplace(
+                    begin_time +
+                        evTimeGenerator(signals[signal_id], streams[stream_id], worker_gen),
+                    signal_id,
+                    stream_id
+                );
+            }
+        }
+        LOG(INFO) << "Events added to the queue: " << event_queue.size();
+
+        while (!event_queue.empty()) {
+            const ScheduledEvent next = event_queue.top();
+            event_queue.pop();
+
+            if (next.time >= std::min(max_times[next.stream_id], end_time)) {
+                continue;
+            }
+            if (config.tooManyEventsGenerated(result.size())) {
+                LOG(WARNING) << "Amount of generated fault exceeded number specified in"
+                                " the config. Stoping generation.";
+                // this exposes that in the previous implementation config limited number of events
+                // per stream, not overall as it was supposed to
+                continue;
+            }
+
+            const auto& signal = signals[next.signal_id];
+            const auto& stream = streams[next.stream_id];
+            result.emplace_back(
+                signals.cbegin() + next.signal_id,
+                static_cast<std::uint64_t>(next.time),
+                /*signal_path=*/"",
+                int_dist(
+                    worker_gen.random_generator,
+                    std::uniform_int_distribution<std::uint32_t>::param_type{0, signal.width}
+                ),
+                faultEventType(signal.type)
+            );
+
+            // Schedule next one
+            event_queue.emplace(
+                next.time + evTimeGenerator(signal, stream, worker_gen),
+                next.signal_id,
+                next.stream_id
+            );
+        }
+
+        LOG(INFO) << "Weibull strategy generated " << result.size() << " faults";
+        return result;
+    }
+};

@@ -22,7 +22,7 @@
 #include "FaultEvent.h"
 #include "FaultStrategy.h"
 #include "FaultStrategyBendel.h"
-#include "Signal.h"
+#include "FaultStrategyWeibull.h"
 
 #include <gtest/gtest.h>
 
@@ -30,10 +30,10 @@ namespace {
 
 const double DEFAULT_CELL_AREA = 0.8925 * 1e-6;  // [um^2]
 
-std::vector<Signal> createSignals(size_t count) {
+std::vector<Signal> createSignals(std::size_t count) {
     std::vector<Signal> signals;
     signals.reserve(count);
-    for (size_t i = 0; i < count; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
         std::string signal_name = "signal_" + std::to_string(i);
         signals.push_back(
             {/*prefix_path=*/"",
@@ -57,45 +57,38 @@ TEST(BendelGenerationTest, CountsWithinTolerance) {
     constexpr std::uint64_t expected_total = 1645;
     constexpr double stream_tolerance = 0.35;
     constexpr double total_tolerance = 0.05;
+    constexpr std::size_t samples = 10;
 
     std::vector<Signal> signals = createSignals(100);
 
-    FaultStrategy::Config config{9999999, 42, 9999999};
-
-    BendelConfig weibull_config{
-        .streams =
-            {
-                BendelConfig::Stream{
-                    .name = "run55",
-                    .energy = 20.0 * 1e6,
-                    .flux_phi = 1.12e8 * 1e4,
-                    .fluence = 1e10 * 1e4
-                },
-                BendelConfig::Stream{
-                    .name = "run52",
-                    .energy = 40.0 * 1e6,
-                    .flux_phi = 1.19e8 * 1e4,
-                    .fluence = 1e10 * 1e4
-                },
-                BendelConfig::Stream{
-                    .name = "run47",
-                    .energy = 60.0 * 1e6,
-                    .flux_phi = 9.17e7 * 1e4,
-                    .fluence = 1e10 * 1e4
-                },
-            }
+    FaultStrategy::Config config{
+        .num_of_events = 0,
+        .seed = 42,
+        .simulation_time = 9999999,
+        .thread_number = 1,
     };
 
-    BendelStrategy strategy{config, weibull_config};
+    std::vector<BendelConfig::Stream> streams = {
+        BendelConfig::Stream{
+            .name = "run55", .energy = 20.0 * 1e6, .flux_phi = 1.12e8 * 1e4, .fluence = 1e10 * 1e4
+        },
+        BendelConfig::Stream{
+            .name = "run52", .energy = 40.0 * 1e6, .flux_phi = 1.19e8 * 1e4, .fluence = 1e10 * 1e4
+        },
+        BendelConfig::Stream{
+            .name = "run47", .energy = 60.0 * 1e6, .flux_phi = 9.17e7 * 1e4, .fluence = 1e10 * 1e4
+        },
+    };
 
     std::vector<FaultEvent> all_events;
-    for (size_t i = 0; i < expected_counts.size(); ++i) {
-        std::vector<FaultEvent> stream_events =
-            strategy.generate(weibull_config.streams[i], signals);
+    for (std::size_t i = 0; i < expected_counts.size(); ++i) {
+        BendelStrategy strategy{config, BendelConfig{{streams[i]}}};
+        std::vector<FaultEvent> stream_events = strategy.generate(signals);
         std::uint64_t count = stream_events.size();
         std::uint64_t expected = expected_counts[i];
         double diff =
             std::abs(static_cast<double>(count) - static_cast<double>(expected)) / expected;
+
         EXPECT_LE(diff, stream_tolerance) << "stream #" << i << ": got " << count << ", expected "
                                           << expected << " (" << diff * 100.0 << "% diff)";
         all_events.insert(all_events.end(), stream_events.begin(), stream_events.end());
@@ -107,4 +100,42 @@ TEST(BendelGenerationTest, CountsWithinTolerance) {
     EXPECT_LE(total_diff, total_tolerance)
         << "total events " << all_events.size() << ", expected " << expected_total << " ("
         << total_diff * 100.0 << "% diff)";
+}
+
+TEST(BendelGenerationTest, WhenInParallelResultIsSorted) {
+    std::vector<Signal> signals = createSignals(100);
+
+    FaultStrategy::Config config{
+        .num_of_events = 0,
+        .seed = 42,
+        .simulation_time = 9999999,
+        .thread_number = 4u,
+    };
+
+    BendelConfig bendel_config =
+        {.streams = {
+             BendelConfig::Stream{
+                 .name = "run55",
+                 .energy = 20.0 * 1e6,
+                 .flux_phi = 1.12e8 * 1e4,
+                 .fluence = 1e10 * 1e4
+             },
+             BendelConfig::Stream{
+                 .name = "run52",
+                 .energy = 40.0 * 1e6,
+                 .flux_phi = 1.19e8 * 1e4,
+                 .fluence = 1e10 * 1e4
+             },
+             BendelConfig::Stream{
+                 .name = "run47",
+                 .energy = 60.0 * 1e6,
+                 .flux_phi = 9.17e7 * 1e4,
+                 .fluence = 1e10 * 1e4
+             },
+         }};
+
+    BendelStrategy strategy{config, bendel_config};
+    std::vector<FaultEvent> stream_events = strategy.generate(signals);
+
+    ASSERT_TRUE(std::is_sorted(stream_events.begin(), stream_events.end()));
 }

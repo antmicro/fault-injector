@@ -18,4 +18,3 @@ target_link_libraries(faultergeist-gen
 if(BUILD_TESTING)
   add_subdirectory(test)
 endif()
-

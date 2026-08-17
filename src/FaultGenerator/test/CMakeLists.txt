@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
+set(TEST_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data")
+
 add_library(FaultGeneratorTestMain STATIC FaultGeneratorTestMain.cpp)
 target_link_libraries(FaultGeneratorTestMain
   PUBLIC
@@ -33,14 +35,14 @@ add_test(NAME unit.generation.faultStrategy.bendel COMMAND TestFaultStrategyBend
 add_executable(TestLibertyParsing TestLibertyParsing.cpp)
 target_link_libraries(TestLibertyParsing PRIVATE FaultGeneratorTestMain)
 target_compile_definitions(TestLibertyParsing PRIVATE
-  TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+  TEST_DATA_DIR="${TEST_DATA_DIR}"
 )
 add_test(NAME unit.generation.gtest.libertyParsing COMMAND TestLibertyParsing)
 
 add_executable(TestOpenROADParsing TestOpenROADParsing.cpp)
 target_link_libraries(TestOpenROADParsing PRIVATE FaultGeneratorTestMain)
 target_compile_definitions(TestOpenROADParsing PRIVATE
-  TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+  TEST_DATA_DIR="${TEST_DATA_DIR}"
 )
 add_test(NAME unit.generation.gtest.openroadParsing COMMAND TestOpenROADParsing)
 
@@ -58,6 +60,13 @@ target_link_libraries(TestFaultEventsSignalFormatter
 )
 add_test(NAME unit.generation.gtest.signalGroupingFaultFormatter COMMAND TestFaultEventsSignalFormatter)
 
+add_executable(TestFaultStrategyDeterminism TestFaultStrategyDeterminism.cpp)
+target_link_libraries(TestFaultStrategyDeterminism PRIVATE FaultGeneratorTestMain)
+target_compile_definitions(TestFaultStrategyDeterminism PRIVATE
+  TEST_DATA_DIR="${TEST_DATA_DIR}"
+)
+add_test(NAME unit.generation.faultStrategy.generationDeterministic COMMAND TestFaultStrategyDeterminism)
+
 # Binary for testing LibertyParser
 add_executable(LibertyParserBin LibertyParser.cpp)
 target_link_libraries(LibertyParserBin
@@ -69,5 +78,5 @@ target_link_libraries(LibertyParserBin
 )
 add_test(NAME unit.generation.libertyParserOnExample
   COMMAND
-    LibertyParserBin --input_path "${CMAKE_CURRENT_SOURCE_DIR}/example.lib"
+  LibertyParserBin --input_path "${TEST_DATA_DIR}/example.lib"
 )

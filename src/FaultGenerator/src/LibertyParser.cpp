@@ -136,7 +136,7 @@ struct Lexer {
             if (at_least(1)) {
                 ++cur;
             }
-            return {Value, {start, size_t(end - start)}};
+            return {Value, {start, std::size_t(end - start)}};
         }
 
         // Unquoted values (until delimiter or whitespace)
@@ -144,7 +144,7 @@ struct Lexer {
         while (at_least(1) && !starts_with_whitespace() && !starts_with(";,(){}:")) {
             ++cur;
         }
-        return {Value, {start, size_t(cur - start)}};
+        return {Value, {start, std::size_t(cur - start)}};
     }
 };
 

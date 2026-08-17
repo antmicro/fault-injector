@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "Constants.h"
 #include "FaultStrategy.h"
 
 struct BendelConfig {
@@ -28,23 +27,19 @@ struct BendelConfig {
         double flux_phi;        // [s^-1 * cm^-2]
         double fluence;
     };
+    std::vector<Stream> streams;
     std::uint32_t bit_count = 1 << 24;                  // 16MB
     double device_area = 5.6 /*[mm]*/ * 10.2 /*[mm]*/;  // [mm^2]
     int num_cells = 64;
-    std::vector<Stream> streams;
 };
 
 class BendelStrategy : public FaultStrategy {
-    std::uniform_real_distribution<double> real_dist;
-    std::uniform_int_distribution<std::uint32_t> bit_dist{0, seu::MAX_BITS};
-
    public:
     const BendelConfig bendel_config;
     explicit BendelStrategy(const Config&, const BendelConfig&);
     std::vector<FaultEvent> generate(std::span<const Signal> signals) override;
-    std::vector<FaultEvent> generate(const BendelConfig::Stream&, std::span<const Signal>);
     std::shared_ptr<FaultStrategy> copy_with(FaultStrategy::Config) override;
 
    private:
-    double eventTime(const Signal&, const BendelConfig::Stream&);
+    double eventTime(const Signal&, const BendelConfig::Stream&, FaultStrategy::RandomGen&);
 };

@@ -30,4 +30,3 @@ target_link_libraries(FaultGenerationToolLib
     absl::flags_parse
     absl::strings
 )
-

@@ -16,37 +16,43 @@
 
 #include "FaultStrategyRandom.h"
 
+#include <algorithm>
+#include <random>
 #include "Constants.h"
 #include "FaultEvent.h"
 #include "FaultStrategy.h"
 
-#include <algorithm>
-#include <random>
-
 RandomStrategy::RandomStrategy(const Config& config) : FaultStrategy(config) {}
 
 std::vector<FaultEvent> RandomStrategy::generate(std::span<const Signal> signals) {
-    std::uniform_int_distribution<uint64_t> time_dist(0, config.simulation_time);
     std::vector<uint64_t> time_values;
     time_values.reserve(config.num_of_events);
+    std::uniform_int_distribution<std::uint64_t> time_dist{0, config.simulation_time};
     for (unsigned int index = 0; index < config.num_of_events; ++index) {
         time_values.push_back(time_dist(gen.random_generator));
     }
     std::sort(time_values.begin(), time_values.end());
 
-    std::uniform_int_distribution<uint32_t> bit_dist(0, seu::MAX_BITS);
-    std::uniform_int_distribution<uint32_t> sig_dist(0, signals.size() - 1);
     std::vector<FaultEvent> fault_events;
     fault_events.reserve(config.num_of_events);
+    std::uniform_int_distribution<std::uint32_t> int_dist;
     for (unsigned int index = 0; index < config.num_of_events; ++index) {
-        auto idx = sig_dist(gen.random_generator);
+        auto idx = int_dist(
+            gen.random_generator,
+            std::uniform_int_distribution<std::uint32_t>::param_type{
+                0, static_cast<unsigned int>(signals.size() - 1)
+            }
+        );
         const Signal& signal = signals[idx];
 
         fault_events.emplace_back(
             signals.begin() + idx,
             time_values[index],
             /*signal_path=*/"",
-            bit_dist(gen.random_generator) % signal.width,
+            int_dist(
+                gen.random_generator,
+                std::uniform_int_distribution<std::uint32_t>::param_type{0, signal.width}
+            ),
             faultEventType(signal.type)
         );
     }
@@ -54,6 +60,5 @@ std::vector<FaultEvent> RandomStrategy::generate(std::span<const Signal> signals
 }
 
 std::shared_ptr<FaultStrategy> RandomStrategy::copy_with(FaultStrategy::Config new_config) {
-    RandomStrategy oth = RandomStrategy(new_config);
-    return std::make_shared<RandomStrategy>(oth);
+    return std::make_shared<RandomStrategy>(new_config);
 }

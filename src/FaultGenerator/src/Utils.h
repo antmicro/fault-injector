@@ -23,7 +23,7 @@
 #include <numbers>
 
 namespace seu {
-static constexpr double deg2rad(double deg) {
+static consteval double deg2rad(double deg) {
     return deg * std::numbers::pi / 180.0;
 }
 };  // namespace seu

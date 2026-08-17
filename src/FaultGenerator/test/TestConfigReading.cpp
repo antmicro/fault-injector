@@ -61,12 +61,12 @@ TEST(RandomStrategyTests, ExampleTest) {
     EXPECT_EQ(actual.netlist_path, "worker.json");
     EXPECT_EQ(actual.fault_campaign_out, "random_file.csv");
     EXPECT_EQ(actual.campaign_number, 26);
-    EXPECT_EQ(actual.thread_number, 15);
 
     ASSERT_TRUE(random);
     EXPECT_EQ(random->config.num_of_events, 101);
-    EXPECT_EQ(random->config.seed, 13);
     EXPECT_EQ(random->config.simulation_time, 102);
+    EXPECT_EQ(random->config.seed, 13);
+    EXPECT_EQ(random->config.thread_number, 15u);
 }
 
 TEST(WeibullStrategyTests, ExampleTest) {
@@ -92,7 +92,8 @@ TEST(WeibullStrategyTests, ExampleTest) {
     "top_module": "dff_worker",
     "top_instance": "worker",
     "netlist_path": "worker.json",
-    "fault_campaign_out": "random_file.csv"
+    "fault_campaign_out": "random_file.csv",
+    "thread_number": 0
   }
 })json"_json;
 
@@ -109,6 +110,7 @@ TEST(WeibullStrategyTests, ExampleTest) {
     EXPECT_EQ(weibull->config.num_of_events, 103);
     EXPECT_EQ(weibull->config.seed, 56);
     EXPECT_EQ(weibull->config.simulation_time, 104);
+    EXPECT_EQ(weibull->config.thread_number, 1);
 
     auto wconfig = weibull->weibull_config;
     EXPECT_DOUBLE_EQ(wconfig.cell_area, 0.25e-23);

@@ -45,16 +45,12 @@ class WeibullStrategy : public FaultStrategy {
    public:
     const WeibullConfig weibull_config;
 
-   private:
-    std::uniform_real_distribution<double> real_dist;
-    std::uniform_int_distribution<std::uint32_t> bit_dist{0, seu::MAX_BITS};
-
    public:
     explicit WeibullStrategy(const Config&, const WeibullConfig&);
     std::vector<FaultEvent> generate(std::span<const Signal>) override;
-    std::vector<FaultEvent> generate(const WeibullConfig::Stream&, std::span<const Signal>);
     std::shared_ptr<FaultStrategy> copy_with(FaultStrategy::Config) override;
 
    private:
-    double eventTime(const Signal&, const WeibullConfig::Stream&, double g0);
+    double
+    eventTime(const Signal&, const WeibullConfig::Stream&, double g0, FaultStrategy::RandomGen&);
 };

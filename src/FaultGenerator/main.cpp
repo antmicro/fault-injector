@@ -32,7 +32,6 @@
 #include <iostream>
 #include <iterator>
 #include <random>
-#include <thread>
 #include <vector>
 
 struct TaskInput {
@@ -59,7 +58,15 @@ std::vector<TaskInput> generate_tasks(
         FaultStrategy::Config new_config = {
             .num_of_events = strategy->config.num_of_events,
             .seed = dist(seed_generator),
-            .simulation_time = strategy->config.simulation_time
+            .simulation_time = strategy->config.simulation_time,
+            .thread_number = 1
+            // TODO: since we don't want to have more threads than user
+            // allowed, when we generate many campaigns in parallel, individual
+            // generation will be performed each on single thread
+            // This is the branch where we generate multiple campaigns, and in that case we want any
+            // particular campaign to run on one thread, because other campaigns take other cores.
+            // We could do it smarter, for example we could have a central
+            // scheduler that schedules the jobs. For now this is unnecessary.
         };
         std::stringstream ss;
         ss << root_path << "/fault_campaign_" << new_config.seed << ".csv";
@@ -122,8 +129,7 @@ void generate_campaigns(const GlobalOpts& opts, const std::vector<Signal>& signa
         opts.strategy->config.seed,
         opts.campaign_number
     );
-    auto num_workers =
-        std::max(1u, std::min(opts.thread_number, std::thread::hardware_concurrency()));
+    auto num_workers = opts.strategy->config.thread_number;
 
     std::vector<std::future<void>> workers;
 

@@ -17,7 +17,7 @@
 #include "FaultEvent.h"
 #include "FaultStrategy.h"
 #include "FaultStrategyWeibull.h"
-#include "Signal.h"
+#include "TestUtils.h"
 
 #include <gtest/gtest.h>
 
@@ -26,71 +26,53 @@
 #include <string>
 #include <vector>
 
-const double DEFAULT_CELL_AREA = 0.25 * 1e-6;  // [cm^2]
-
-static std::vector<Signal> createSignals(size_t count) {
-    std::vector<Signal> signals;
-    signals.reserve(count);
-    for (size_t i = 0; i < count; ++i) {
-        std::string signal_name = "signal_" + std::to_string(i);
-        signals.push_back(
-            {/*prefix_path=*/"",
-             signal_name,
-             std::to_string(i),
-             1024,
-             DEFAULT_CELL_AREA,
-             std::nullopt,
-             signal_name,
-             SignalType::REGISTER}
-        );
-    }
-    return signals;
-}
-
 TEST(WeibullGenerationTest, CountsWithinTolerance) {
     // From seu2.py
     constexpr std::uint64_t expected_counts[] = {2431964, 245205, 103683, 101457, 20256,
                                                  99086,   102352, 104023, 97811,  2741,
                                                  91813,   98614,  52001,  90941,  9825,
                                                  9659,    25,     26,     160635, 10396};
-    constexpr size_t num_streams = sizeof(expected_counts) / sizeof(expected_counts[0]);
+    constexpr std::size_t num_streams = sizeof(expected_counts) / sizeof(expected_counts[0]);
     constexpr std::uint64_t expected_total = 3832513;
+    constexpr std::size_t samples = 10;
 
     std::vector<Signal> signals = createSignals(100);
 
-    FaultStrategy::Config config{9999999, 42, 9999999};
-
-    WeibullConfig weibullConfig{
-        .streams =
-            {WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 9.15e3 * 1e4, .max_time = 1094},
-             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 996},
-             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.04e3 * 1e4, .max_time = 409},
-             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.05e3 * 1e4, .max_time = 399},
-             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 5.04e2 * 1e4, .max_time = 166},
-             WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 536},
-             WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 551},
-             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.58e3 * 1e4, .max_time = 417},
-             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.51e3 * 1e4, .max_time = 411},
-             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.45e3 * 1e4, .max_time = 12},
-             WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.00e3 * 1e4, .max_time = 433},
-             WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.05e3 * 1e4, .max_time = 452},
-             WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.32e3 * 1e4, .max_time = 433},
-             WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.77e3 * 1e4, .max_time = 636},
-             WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.03e3 * 1e4, .max_time = 201},
-             WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.11e3 * 1e4, .max_time = 197},
-             WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 7.60e3 * 1e4, .max_time = 133},
-             WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 8.17e3 * 1e4, .max_time = 124},
-             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 9.99e3 * 1e4, .max_time = 102},
-             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 5.17e1 * 1e4, .max_time = 1275}}
+    FaultStrategy::Config config{
+        .num_of_events = 9999999,
+        .seed = 42,
+        .simulation_time = 9999999,
+        .thread_number = 1,
     };
 
-    WeibullStrategy strategy{config, weibullConfig};
+    std::vector<WeibullConfig::Stream> streams = {
+        WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 9.15e3 * 1e4, .max_time = 1094},
+        WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 996},
+        WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.04e3 * 1e4, .max_time = 409},
+        WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.05e3 * 1e4, .max_time = 399},
+        WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 5.04e2 * 1e4, .max_time = 166},
+        WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 536},
+        WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 551},
+        WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.58e3 * 1e4, .max_time = 417},
+        WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.51e3 * 1e4, .max_time = 411},
+        WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.45e3 * 1e4, .max_time = 12},
+        WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.00e3 * 1e4, .max_time = 433},
+        WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.05e3 * 1e4, .max_time = 452},
+        WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.32e3 * 1e4, .max_time = 433},
+        WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.77e3 * 1e4, .max_time = 636},
+        WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.03e3 * 1e4, .max_time = 201},
+        WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.11e3 * 1e4, .max_time = 197},
+        WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 7.60e3 * 1e4, .max_time = 133},
+        WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 8.17e3 * 1e4, .max_time = 124},
+        WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 9.99e3 * 1e4, .max_time = 102},
+        WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 5.17e1 * 1e4, .max_time = 1275}
+    };
 
     std::vector<FaultEvent> all_events;
 
-    for (size_t i = 0; i < num_streams; ++i) {
-        std::vector<FaultEvent> stream_events =
-            strategy.generate(weibullConfig.streams[i], signals);
+    for (std::size_t i = 0; i < num_streams; ++i) {
+        WeibullStrategy strategy{config, WeibullConfig{{streams[i]}}};
+        std::vector<FaultEvent> stream_events = strategy.generate(signals);
         std::uint64_t count = stream_events.size();
         std::uint64_t expected = expected_counts[i];
         all_events.insert(all_events.end(), stream_events.begin(), stream_events.end());
@@ -118,4 +100,44 @@ TEST(WeibullGenerationTest, CountsWithinTolerance) {
         expected_total;
     EXPECT_LE(total_diff, 0.05) << "total events " << all_events.size() << ", expected "
                                 << expected_total << " (" << total_diff * 100.0 << "% diff)";
+}
+
+TEST(WeibullGenerationTest, WhenInParallelResultIsSorted) {
+    std::vector<Signal> signals = createSignals(100);
+
+    FaultStrategy::Config config{
+        .num_of_events = 9999999,
+        .seed = 42,
+        .simulation_time = 9999999,
+        .thread_number = 4u,
+    };
+
+    WeibullConfig weibull_config = {
+        .streams =
+            {WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 9.15e3 * 1e4, .max_time = 1094},
+             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 996},
+             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.04e3 * 1e4, .max_time = 409},
+             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 1.05e3 * 1e4, .max_time = 399},
+             WeibullConfig::Stream{.let = 67.7 * 1e5, .flux_phi = 5.04e2 * 1e4, .max_time = 166},
+             WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 536},
+             WeibullConfig::Stream{.let = 40.4 * 1e5, .flux_phi = 1.01e3 * 1e4, .max_time = 551},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.58e3 * 1e4, .max_time = 417},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.51e3 * 1e4, .max_time = 411},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 1.45e3 * 1e4, .max_time = 12},
+             WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.00e3 * 1e4, .max_time = 433},
+             WeibullConfig::Stream{.let = 20.4 * 1e5, .flux_phi = 2.05e3 * 1e4, .max_time = 452},
+             WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.32e3 * 1e4, .max_time = 433},
+             WeibullConfig::Stream{.let = 10.2 * 1e5, .flux_phi = 2.77e3 * 1e4, .max_time = 636},
+             WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.03e3 * 1e4, .max_time = 201},
+             WeibullConfig::Stream{.let = 3.0 * 1e5, .flux_phi = 5.11e3 * 1e4, .max_time = 197},
+             WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 7.60e3 * 1e4, .max_time = 133},
+             WeibullConfig::Stream{.let = 1.1 * 1e5, .flux_phi = 8.17e3 * 1e4, .max_time = 124},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 9.99e3 * 1e4, .max_time = 102},
+             WeibullConfig::Stream{.let = 32.6 * 1e5, .flux_phi = 5.17e1 * 1e4, .max_time = 1275}}
+    };
+
+    WeibullStrategy strategy{config, weibull_config};
+    std::vector<FaultEvent> stream_events = strategy.generate(signals);
+
+    ASSERT_TRUE(std::is_sorted(stream_events.begin(), stream_events.end()));
 }

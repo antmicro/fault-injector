@@ -14,11 +14,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
+
 #include <cstddef>
 
 struct ScheduledEvent {
     double time = 0.0;
     std::size_t signal_id = 0;
+    std::size_t stream_id = 0;
 
     bool operator>(const ScheduledEvent& other) const {
         if (time != other.time) {

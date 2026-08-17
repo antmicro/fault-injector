@@ -48,7 +48,7 @@ inline std::ostream& operator<<(std::ostream& os, FaultEventType type) {
 struct FaultEvent {
     Signal::Iterator it;
     std::uint64_t time = 0;
-    std::string signal_path;
+    std::string_view signal_path;
     std::uint32_t bit_index = 0;
     FaultEventType type = FaultEventType::UNKNOWN;
 

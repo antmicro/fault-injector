@@ -18,104 +18,58 @@
 
 #include "FaultEvent.h"
 #include "FaultStrategy.h"
+#include "FaultStrategyRunner.h"
 #include "LogUtils.h"
-#include "ScheduledEvent.h"
 #include "Signal.h"
 #include "Utils.h"
 
 #include <algorithm>
 #include <cmath>
-#include <functional>
-#include <queue>
-#include <random>
 #include <vector>
 
 WeibullStrategy::WeibullStrategy(const Config& config, const WeibullConfig& weibullConfig)
     : FaultStrategy(config), weibull_config(weibullConfig) {}
 
+// cannot be constexpr, as std::cos is constexpr only in c++26
+const double cos_theta = std::cos(seu::deg2rad(seu::FLUX_THETA));
 double WeibullStrategy::eventTime(
     const Signal& signal,
     const WeibullConfig::Stream& stream,
-    double g0
+    double g0,
+    FaultStrategy::RandomGen& gen
 ) {
-    const double cos = std::cos(seu::deg2rad(seu::FLUX_THETA));
+    thread_local std::exponential_distribution<double> dist;
+
     const double L0 = weibull_config.let_threshold;
     const double W = weibull_config.width;
     const double s = weibull_config.shape_parameter;
 
-    const double g = g0 * (1.0 - std::exp(-std::pow((stream.let / cos - L0) / W, s)));
-    const double h = g * stream.flux_phi * signal.area * cos;
-    const double p = real_dist(gen.random_generator);
+    const double g = g0 * (1.0 - std::exp(-std::pow((stream.let / cos_theta - L0) / W, s)));
+    const double h = g * stream.flux_phi * signal.area * cos_theta;
     assert(h != 0);
-    const double dt = -std::log(1 - p) / h;
-    return dt;
+    return dist(gen.random_generator, std::exponential_distribution<double>::param_type{h});
 }
 
 std::vector<FaultEvent> WeibullStrategy::generate(std::span<const Signal> signals) {
-    std::vector<FaultEvent> result;
-    for (size_t i = 0; i < weibull_config.streams.size(); ++i) {
-        // TODO parallel generation of events for every stream independently
-        LOG(INFO) << "Starting generating for stream #" << i;
-        std::vector<FaultEvent> current = generate(weibull_config.streams[i], signals);
-        LOG(INFO) << "Stream #" << i << " generated " << current.size() << " faults\n";
-        const auto result_size = result.size();
-        std::copy(current.begin(), current.end(), std::back_inserter(result));
-        std::inplace_merge(result.begin(), result.begin() + result_size, result.end());
-    }
+    LOG(INFO) << "Weibull strategy generating in parallel";
+
+    const double g0 = weibull_config.limiting_cross_section *
+                      (static_cast<double>(weibull_config.bit_count) / signals.size());
+    auto eventTime =
+        [&](const Signal& signal, const WeibullConfig::Stream& stream, FaultStrategy::RandomGen& gen
+        ) { return this->eventTime(signal, stream, g0, gen); };
+    auto maxTime = [&](const WeibullConfig::Stream& stream) {
+        return std::min(stream.max_time, static_cast<double>(config.simulation_time));
+    };
+    using WeibullRunner =
+        FaultStrategyRunner<WeibullConfig::Stream, decltype(eventTime), decltype(maxTime)>;
+    WeibullRunner runner(eventTime, maxTime, config, weibull_config.streams, signals, this->gen);
+
+    std::vector<FaultEvent> result = runner.generateInParallelByTimeSlice();
     LOG(INFO) << "Weibull strategy generated " << result.size() << " faults";
     return result;
 }
 
-std::vector<FaultEvent> WeibullStrategy::generate(
-    const WeibullConfig::Stream& stream_data,
-    std::span<const Signal> signals
-) {
-    std::vector<FaultEvent> result;
-    const double g0 = weibull_config.limiting_cross_section *
-                      (static_cast<double>(weibull_config.bit_count) / signals.size());
-
-    std::priority_queue<ScheduledEvent, std::vector<ScheduledEvent>, std::greater<ScheduledEvent>>
-        event_queue;
-
-    for (std::size_t signal_id = 0; signal_id < signals.size(); ++signal_id) {
-        event_queue.push(ScheduledEvent{
-            .time = eventTime(signals[signal_id], stream_data, g0),
-            .signal_id = signal_id,
-        });
-    }
-
-    const double max_time =
-        std::min(stream_data.max_time, static_cast<double>(config.simulation_time));
-    while (!event_queue.empty()) {
-        const ScheduledEvent next = event_queue.top();
-        event_queue.pop();
-
-        if (next.time >= max_time) {
-            break;
-        }
-        if (config.tooManyEventsGenerated(result.size())) {
-            LOG(WARNING) << "Amount of generated fault exceeded number specified in the config. "
-                            "Stoping generation.";
-            break;
-        }
-
-        const auto& signal = signals[next.signal_id];
-        result.emplace_back(FaultEvent{
-            signals.begin() + next.signal_id,
-            static_cast<std::uint64_t>(next.time),
-            /*signal_path=*/"",
-            bit_dist(gen.random_generator) % signal.width,
-            faultEventType(signal.type)
-        });
-
-        // Schedule next one
-        event_queue.emplace(next.time + eventTime(signal, stream_data, g0), next.signal_id);
-    }
-
-    return result;
-}
-
 std::shared_ptr<FaultStrategy> WeibullStrategy::copy_with(FaultStrategy::Config new_config) {
-    WeibullStrategy oth = WeibullStrategy(new_config, this->weibull_config);
-    return std::make_shared<WeibullStrategy>(oth);
+    return std::make_shared<WeibullStrategy>(new_config, weibull_config);
 }
