@@ -1,6 +1,14 @@
 # Faultergeist
 Copyright (c) 2026 Antmicro
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-readme-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo-readme-light.png">
+    <img src="assets/logo-readme-light.png">
+  </picture>
+</p>
+
 A fault injection framework for hardware design simulation, including a plugin
 for VPI-compatible simulators. Generates fault campaigns based on a netlist and
 injects them into a simulation via VPI.
