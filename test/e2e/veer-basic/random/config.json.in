@@ -7,7 +7,7 @@
     "seed": 42,
     "num_of_events": 10000,
     "simulation_time": 22000,
-    "sig_path_prefix": "tb_top.rvtop_wrapper",
+    "sig_path_prefix": "TOP.tb_top.rvtop_wrapper",
     "top_module": "el2_veer_wrapper",
     "top_instance": "rvtop",
     "netlist_path": "@JSON_NETLIST@",

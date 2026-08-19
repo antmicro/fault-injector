@@ -70,9 +70,9 @@ void EventParser::gatherSignals(vpiHandle it, int indent) {
 
             insertSignal(Signal{std::string{fn}, ManagedVpiHandle{vh11}});
         }
-        vpiHandle subIt = vpi_iterate(vpiModule, hndl.handle());
-        if (subIt) {
-            gatherSignals(subIt, indent + 1);
+        vpiHandle scopeIt = vpi_iterate(vpiInternalScope, hndl.handle());
+        if (scopeIt) {
+            gatherSignals(scopeIt, indent + 1);
         }
     }
 }

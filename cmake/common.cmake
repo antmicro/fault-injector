@@ -6,10 +6,13 @@ set(FI_E2E_SCRIPT_DIR "${PROJECT_SOURCE_DIR}/test/cmake")
 set(FI_E2E_SYNTH_SCRIPT "${PROJECT_SOURCE_DIR}/test/e2e/synth.tcl")
 set(FI_E2E_FAULT_INJECTOR_DIR "${PROJECT_SOURCE_DIR}/src/FaultInjector")
 set(FI_E2E_TOOLS_TARGET fi-e2e-tools)
+set(FI_E2E_VEER_SETUP_TARGET fi-e2e-veer-setup)
+set(FI_E2E_VEER_COMMON_DEFINES "${PROJECT_SOURCE_DIR}/third_party/Cores-VeeR-EL2/snapshots/dual/common_defines.vh")
 set(FI_E2E_SKIP_CODE 77)
 
 # Cache variables
 set(ASAP7_LIBERTY_CACHE_PATH "" CACHE FILEPATH "Existing decompressed ASAP7 Liberty file to reuse for e2e tests")
+option(FI_E2E_FORCE_SETUP_VEER "Run VeeR setup steps when building VeeR E2E targets" OFF)
 
 # Default file names
 set(FI_E2E_JSON_NETLIST_DEFAULT_FILENAME "netlist.json")
@@ -154,6 +157,40 @@ endmacro()
 #===============================================================================
 
 function(fi_require_e2e_tools)
+  if(NOT TARGET ${FI_E2E_VEER_SETUP_TARGET})
+    add_custom_command(
+      OUTPUT "${FI_E2E_VEER_COMMON_DEFINES}"
+      COMMAND "${CMAKE_COMMAND}" "-DFI_PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+              "-DFI_E2E_FORCE_SETUP_VEER=${FI_E2E_FORCE_SETUP_VEER}"
+              -P "${PROJECT_SOURCE_DIR}/cmake/setup_veer.cmake"
+      DEPENDS "${PROJECT_SOURCE_DIR}/cmake/setup_veer.cmake"
+              "${PROJECT_SOURCE_DIR}/test/veer/veer_synth_and_sim_prep.patch"
+      COMMENT "Preparing VeeR dual snapshot"
+      VERBATIM
+    )
+    add_custom_target(${FI_E2E_VEER_SETUP_TARGET}
+      DEPENDS "${FI_E2E_VEER_COMMON_DEFINES}"
+    )
+  endif()
+  message(STATUS "E2E VeeR setup: deferred to target ${FI_E2E_VEER_SETUP_TARGET}")
+  message(STATUS "E2E VeeR setup enabled: ${FI_E2E_FORCE_SETUP_VEER}")
+  set(_veer_root "${PROJECT_SOURCE_DIR}/third_party/Cores-VeeR-EL2")
+  if(EXISTS "${_veer_root}/.git")
+    message(STATUS "E2E VeeR checkout: ${_veer_root}")
+  else()
+    message(STATUS "E2E VeeR checkout: NOT DOWNLOADED")
+  endif()
+  if(EXISTS "${_veer_root}/.venv/bin/python")
+    message(STATUS "E2E VeeR virtualenv: ${_veer_root}/.venv")
+  else()
+    message(STATUS "E2E VeeR virtualenv: pending setup")
+  endif()
+  if(EXISTS "${FI_E2E_VEER_COMMON_DEFINES}")
+    message(STATUS "E2E VeeR dual snapshot: ready")
+  else()
+    message(STATUS "E2E VeeR dual snapshot: pending setup")
+  endif()
+
   if(DEFINED VERILATOR_ROOT AND NOT VERILATOR_ROOT STREQUAL "")
     set(_verilator "${VERILATOR_ROOT}/bin/verilator")
     set(VERILATOR_EXECUTABLE "${_verilator}" CACHE FILEPATH "Path to verilator" FORCE)
@@ -163,15 +200,32 @@ function(fi_require_e2e_tools)
   else()
     find_program(VERILATOR_EXECUTABLE verilator)
   endif()
+  if(VERILATOR_EXECUTABLE AND NOT "${VERILATOR_EXECUTABLE}" MATCHES "-NOTFOUND$")
+    message(STATUS "E2E Verilator: ${VERILATOR_EXECUTABLE}")
+  else()
+    message(STATUS "E2E Verilator: NOT FOUND")
+  endif()
 
   find_program(YOSYS_EXECUTABLE yosys)
+  if(YOSYS_EXECUTABLE)
+    message(STATUS "E2E Yosys: ${YOSYS_EXECUTABLE}")
+  else()
+    message(STATUS "E2E Yosys: NOT FOUND")
+  endif()
+
   find_program(SEVENZIP_EXECUTABLE NAMES 7z 7za 7zr)
+  if(SEVENZIP_EXECUTABLE)
+    message(STATUS "E2E 7-Zip: ${SEVENZIP_EXECUTABLE}")
+  else()
+    message(STATUS "E2E 7-Zip: NOT FOUND")
+  endif()
 
   ProcessorCount(_processor_count)
   if(_processor_count EQUAL 0)
     set(_processor_count 1)
   endif()
   set(FI_E2E_JOBS "${_processor_count}" CACHE STRING "Parallel jobs used by E2E Verilator/faultergeist-gen commands")
+  message(STATUS "E2E parallel jobs: ${FI_E2E_JOBS}")
 
   set(FI_E2E_TOOLS_FOUND TRUE)
   foreach(_tool VERILATOR_EXECUTABLE YOSYS_EXECUTABLE)
@@ -185,14 +239,23 @@ function(fi_require_e2e_tools)
     if(NOT EXISTS "${ASAP7_LIBERTY_CACHE_PATH}")
       message(WARNING "ASAP7_LIBERTY_CACHE_PATH does not exist: ${ASAP7_LIBERTY_CACHE_PATH}")
       set(FI_E2E_TOOLS_FOUND FALSE)
+    else()
+      message(STATUS "E2E ASAP7 Liberty: ${ASAP7_LIBERTY_CACHE_PATH}")
     endif()
   else()
+    set(_asap7_archives_found TRUE)
     foreach(lib_archive IN LISTS ${FI_E2E_ASAP7_LIBERTY_ARCHIVES})
       if(NOT EXISTS "${lib_archive}")
         message(WARNING "ASAP7 Liberty archive ${lib_archive} not found. Clone third_party/asap7 or set ASAP7_LIBERTY_CACHE_PATH.")
+        set(_asap7_archives_found FALSE)
         set(FI_E2E_TOOLS_FOUND FALSE)
       endif()
     endforeach()
+    if(_asap7_archives_found)
+      message(STATUS "E2E ASAP7 Liberty: bundled archives ready")
+    else()
+      message(STATUS "E2E ASAP7 Liberty: NOT READY")
+    endif()
     if(NOT SEVENZIP_EXECUTABLE OR "${SEVENZIP_EXECUTABLE}" MATCHES "-NOTFOUND$")
       message(WARNING "7z was not found. Install 7z or set ASAP7_LIBERTY_CACHE_PATH to a decompressed .lib file.")
       set(FI_E2E_TOOLS_FOUND FALSE)
@@ -209,6 +272,7 @@ function(fi_require_e2e_tools)
       )
     endif()
   else()
+    message(STATUS "E2E tools: ready")
     if(NOT TARGET ${FI_E2E_TOOLS_TARGET})
         add_custom_target(${FI_E2E_TOOLS_TARGET})
     endif()
@@ -552,6 +616,7 @@ function(fi_add_verilated_sim NAME)
 
   if(FI_VEER_MODE)
     set(FI_NO_BUILD)
+    list(APPEND _depends "${FI_E2E_VEER_SETUP_TARGET}")
   endif()
 
   if(FI_NO_MAIN OR FI_NO_BUILD)
@@ -576,7 +641,7 @@ function(fi_add_verilated_sim NAME)
       COMMAND "${CMAKE_COMMAND}" -E rm -rf "${FI_SIMULATION_DIR}/CMakeFiles" "${FI_SIMULATION_DIR}/${FI_TB_TOP}.dir"
       COMMAND "${CMAKE_COMMAND}" -E rm -f "${FI_SIMULATION_DIR}/${FI_TB_TOP}" "${FI_SIMULATION_DIR}/${FI_TB_TOP}__ALL.a" "${FI_SIMULATION_DIR}/${FI_TB_TOP}.mk" "${FI_SIMULATION_DIR}/${FI_TB_TOP}_classes.mk"
       COMMAND
-        "${CMAKE_COMMAND}" -E env "RV_ROOT=${RTL_ROOT}"
+        "${CMAKE_COMMAND}" -E env "PATH=${RTL_ROOT}/.venv/bin:$ENV{PATH}" "RV_ROOT=${RTL_ROOT}"
         "${VERILATOR_EXECUTABLE}"
         ${_build_arg} --vpi --Mdir "${_mdir}"
         -CFLAGS "-g"
@@ -584,7 +649,7 @@ function(fi_add_verilated_sim NAME)
         ${FI_SOURCES}
         ${_args}
       COMMAND cp "${RTL_ROOT}/testbench/test_tb_top.cpp" "${FI_SIMULATION_DIR}"
-      COMMAND "${CMAKE_COMMAND}" -E env "RV_ROOT=${RTL_ROOT}" make -e -C "${FI_SIMULATION_DIR}" -f "${FI_TB_TOP}.mk"
+      COMMAND "${CMAKE_COMMAND}" -E env "PATH=${RTL_ROOT}/.venv/bin:$ENV{PATH}" "RV_ROOT=${RTL_ROOT}" make -e -C "${FI_SIMULATION_DIR}" -f "${FI_TB_TOP}.mk"
       DEPENDS ${_depends}
       VERBATIM
     )
